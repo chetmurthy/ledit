@@ -475,7 +475,65 @@ value rec end_of_history st =
   try set_line st (Cursor.peek st.history) with [ Cursor.Failure -> bell () ]
 ;
 
+value rec back_search st ad hist rpos =
+  match hist with
+  [ [] ->
+      do for i = 0 to String.length ad.abbr - 1 do
+           insert_char st ad.abbr.[i]; st.line.cur := st.line.cur + 1;
+         done;
+      return bell ()
+  | [l :: ll] ->
+      let i = String.length l - rpos in
+      if i <= 0 then back_search st ad ll 0
+      else
+        let i = backward_word {buf = l; cur = i; len = String.length l} in
+        if String.length l - i < String.length ad.abbr then
+          back_search st ad [l :: ll] (String.length l - i)
+        else if String.sub l i (String.length ad.abbr) = ad.abbr then
+          let i1 = forward_word {buf = l; cur = i; len = String.length l} in
+          let f = String.sub l i (i1 - i) in
+          if List.mem f ad.found then
+            back_search st ad [l :: ll] (String.length l - i)
+          else
+            let ad =
+              {hist = [l :: ll]; rpos = String.length l - i1; clen = i1 - i;
+               abbr = ad.abbr; found = [f :: ad.found]}
+            in
+            do st.abbrev := Some ad;
+               for i = 0 to String.length f - 1 do
+                 insert_char st f.[i]; st.line.cur := st.line.cur + 1;
+               done;
+            return ()
+        else back_search st ad [l :: ll] (String.length l - i) ]
+;
+
+value expand_abbrev st abbrev =
+  let ad =
+    match abbrev with
+    [ Some x -> x
+    | None ->
+        let len = get_word_len st in
+        let abbr = String.sub st.line.buf (st.line.cur - len) len in
+        let line_beg = String.sub st.line.buf 0 (st.line.cur - len) in
+        let line_end =
+          String.sub st.line.buf st.line.cur
+            (st.line.len - st.line.cur)
+        in
+        {hist = [line_beg :: Cursor.get_all st.history @ [line_end]];
+         rpos = 0; clen = len; abbr = abbr; found = [abbr]} ]
+  in
+  do for i = 1 to ad.clen do
+       st.line.cur := st.line.cur -  1;
+       delete_char st;
+     done;
+     back_search st ad ad.hist ad.rpos;
+     update_output st;
+  return ()
+;
+
 value rec update_line st comm c =
+  let abbrev = st.abbrev in
+  do st.abbrev := None; return
   match comm with
   [ Beginning_of_line ->
       if st.line.cur > 0 then do st.line.cur := 0; update_output st; return ()
@@ -534,6 +592,7 @@ value rec update_line st comm c =
          balance_paren st c;
          update_output st;
       return ()
+  | Expand_abbrev -> expand_abbrev st abbrev
   | Refresh_line ->
       do put_newline st;
          st.od.cur := 0;
@@ -583,48 +642,6 @@ value rec update_line st comm c =
   | _ -> () ]
 ;
 
-value rec back_search st ad hist rpos =
-  match hist with
-  [ [] ->
-      do for i = 0 to String.length ad.abbr - 1 do
-           insert_char st ad.abbr.[i]; st.line.cur := st.line.cur + 1;
-         done;
-      return bell ()
-  | [l :: ll] ->
-      let i = String.length l - rpos in
-      if i <= 0 then back_search st ad ll 0
-      else
-        let i = backward_word {buf = l; cur = i; len = String.length l} in
-        if String.length l - i < String.length ad.abbr then
-          back_search st ad [l :: ll] (String.length l - i)
-        else if String.sub l i (String.length ad.abbr) = ad.abbr then
-          let i1 = forward_word {buf = l; cur = i; len = String.length l} in
-          let f = String.sub l i (i1 - i) in
-          if List.mem f ad.found then
-            back_search st ad [l :: ll] (String.length l - i)
-          else
-            let ad =
-              {hist = [l :: ll]; rpos = String.length l - i1; clen = i1 - i;
-               abbr = ad.abbr; found = [f :: ad.found]}
-            in
-            do st.abbrev := Some ad;
-               for i = 0 to String.length f - 1 do
-                 insert_char st f.[i]; st.line.cur := st.line.cur + 1;
-               done;
-            return ()
-        else back_search st ad [l :: ll] (String.length l - i) ]
-;
-
-value expand_abbrev st ad =
-  do for i = 1 to ad.clen do
-       st.line.cur := st.line.cur -  1;
-       delete_char st;
-     done;
-     back_search st ad ad.hist ad.rpos;
-     update_output st;
-  return ()
-;
-
 value save_history st line =
   let last_line =
     try Cursor.peek_last st.history with [ Cursor.Failure -> "" ]
@@ -668,24 +685,8 @@ value edit_line () =
         return
         let line = String.sub st.line.buf 0 st.line.len in
         do st.abbrev := None; save_history st line; return line
-    | Expand_abbrev ->
-        let ad =
-          match st.abbrev with
-          [ Some x -> x
-          | None ->
-              let len = get_word_len st in
-              let abbr = String.sub st.line.buf (st.line.cur - len) len in
-              let line_beg = String.sub st.line.buf 0 (st.line.cur - len) in
-              let line_end =
-                String.sub st.line.buf st.line.cur
-                  (st.line.len - st.line.cur)
-              in
-              {hist = [line_beg :: Cursor.get_all st.history @ [line_end]];
-               rpos = 0; clen = len; abbr = abbr; found = [abbr]} ]
-        in
-        do st.abbrev := None; expand_abbrev st ad; return edit_loop ()
     | _ ->
-        do st.abbrev := None; update_line st comm c; return edit_loop () ]
+        do update_line st comm c; return edit_loop () ]
   in
   do st.od.len := 0;
      st.od.cur := 0;
