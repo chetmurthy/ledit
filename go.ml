@@ -98,7 +98,7 @@ value go () =
     with x ->
       do signal sigchld Signal_ignore;
          try do close stdout; return let _ = wait () in () with
-         [ Unix_error _ -> () ];
+         [ Unix_error _ _ _ -> () ];
       return
       match x with
       [ End_of_file -> ()
@@ -111,7 +111,7 @@ value go () =
 
 value handle f a =
   try f a with
-  [ Unix.Unix_error (code, fname, param) ->
+  [ Unix.Unix_error code fname param ->
       do Printf.eprintf "Unix error: %s\nOn function %s %s\n"
            (Unix.error_message code) fname param;
          flush Pervasives.stderr;

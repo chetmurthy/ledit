@@ -6,7 +6,7 @@ value expr_of_patt p =
   let loc = MLast.loc_of_patt p in
   match p with
   [ <:patt< $lid:x$ >> -> <:expr< $lid:x$ >>
-  | _ -> Stdpp.raise_with_loc loc (Gstream.Error "identifier expected") ]
+  | _ -> Stdpp.raise_with_loc loc (Stream.Error "identifier expected") ]
 ;
 
 EXTEND

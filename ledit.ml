@@ -142,16 +142,23 @@ value bell () = do prerr_string "\007"; flush stderr; return ();
 open Unix;
 
 value saved_tcio = tcgetattr stdin;
+value edit_tcio = ref None;
 
 value set_edit () =
-  let tcio = tcgetattr stdin in
-  do tcio.c_echo := False;
-     tcio.c_icanon := False;
-     tcio.c_vmin := 1;
-     tcio.c_isig := False;
-     tcio.c_ixon := False;
-     tcsetattr stdin TCSANOW tcio;
-  return ()
+  let tcio =
+    match edit_tcio.val with
+    [ Some e -> e
+    | None ->
+        let tcio = tcgetattr stdin in
+        do tcio.c_echo := False;
+           tcio.c_icanon := False;
+           tcio.c_vmin := 1;
+           tcio.c_isig := False;
+           tcio.c_ixon := False;
+           edit_tcio.val := Some tcio;
+        return tcio ]
+  in
+  tcsetattr stdin TCSANOW tcio
 and unset_edit () = tcsetattr stdin TCSANOW saved_tcio;
 
 value line_set_nth_char line i c =
