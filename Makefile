@@ -43,7 +43,7 @@ include .depend
 
 .ml.cmo:
 	$(PP) ./pa_local.cmo -warn_seq $< -o $*.ppo
-	$(COMP) -c -impl $*.ppo
+	$(COMP) -I `camlp4 -where` -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 .mli.cmi:
 	$(PP) $< -o $*.ppi
