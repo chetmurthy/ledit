@@ -1,10 +1,10 @@
 Ledit Version 1.2
 -----------------
+- Possible use of keyboard arrows
 - Fixed bug: ^q was not interpreted
-- Possible use of arrows
 - If the environment variable LC_CTYPE is iso_8859_1, chars whose code > 128
   are printed directly (else using backslash and code number).
-- Option -v prints ledit version and exit.
+- Option -v print ledit version and exit.
 
 Ledit Version 1.1
 -----------------
