@@ -1,3 +1,9 @@
+Ledit Version 1.9
+-----------------
+
+- [25 Jun 2001] (internal) Updated for new revised syntax of sequences;
+  added a printer pr_local for the "local" statement
+
 Ledit Version 1.8
 -----------------
 
