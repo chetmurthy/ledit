@@ -45,6 +45,8 @@ depend:
 
 include .depend
 
+.SUFFIXES: .ml .cmo .cmx .mli .cmi
+
 .ml.cmo:
 	$(PP) ./pa_local.cmo -warn_seq $< -o $*.ppo
 	$(COMP) -I `camlp4 -where` -c -impl $*.ppo
@@ -57,5 +59,3 @@ include .depend
 	$(PP) $< -o $*.ppi
 	$(COMP) -c -intf $*.ppi
 	/bin/rm -f $*.ppi
-
-.SUFFIXES: .ml .cmo .cmx .mli .cmi
