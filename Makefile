@@ -21,6 +21,7 @@ clean:
 	/bin/rm -f *.cmo *.cmi *.cmx *.bak $(TARGET) ledit.l
 
 install:
+	mkdirhier $(BINDIR) $(MANDIR)
 	-cp ledit.out $(BINDIR)/ledit
 	-cp ledit.l $(MANDIR)/ledit.l
 
