@@ -120,6 +120,9 @@ Summary of reverse search commands:
 .fi
 
 .SH KNOWN BUGS
+The suspend command kills \fIledit\fP and its command if ledit has been
+launched in a shell script... Use "exec ledit comm" instead of "ledit comm".
+.br
 The suspend command stops \fIledit\fP but not the called program. Do not
 do this if the called program is not waiting on standard input.
 

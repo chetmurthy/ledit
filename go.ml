@@ -103,11 +103,20 @@ value go () =
       match x with
       [ End_of_file -> ()
       | _ ->
-          do prerr_string "(ledit) "; flush Pervasives.stderr; raise x; return
-          () ]
+          do prerr_string "(ledit) "; flush Pervasives.stderr; return raise x ]
   else
     do dup2 id stdin; close id; close od; execvp comm.val args.val; return
     failwith "execv"
 ;
 
-Printexc.catch go ();
+value handle f a =
+  try f a with
+  [ Unix.Unix_error (code, fname, param) ->
+      do Printf.eprintf "Unix error: %s\nOn function %s %s\n"
+           (Unix.error_message code) fname param;
+         flush Pervasives.stderr;
+      return exit 2
+  | e -> Printexc.catch raise e ]
+;
+
+handle go ();
