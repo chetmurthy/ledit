@@ -125,11 +125,11 @@ launched in a shell script... Use "exec ledit comm" instead of "ledit comm".
 .br
 The suspend command stops \fIledit\fP but not the called program. Do not
 do this if the called program is not waiting on standard input.
+.br
+In some systems (e.g. alpha), pasting of two many characters works bad and
+may block the terminal. No solution.
 
 .SH AUTHOR
 Daniel de Rauglaudre, at INRIA, france.
 .br
 daniel.de_rauglaudre@inria.fr
-
-.SH FILES
-/usr/local/bin/ledit

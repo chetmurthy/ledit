@@ -169,8 +169,8 @@ value set_edit () =
            edit_tcio.val := Some tcio;
         return tcio ]
   in
-  tcsetattr stdin TCSANOW tcio
-and unset_edit () = tcsetattr stdin TCSANOW saved_tcio;
+  tcsetattr stdin TCSADRAIN tcio
+and unset_edit () = tcsetattr stdin TCSADRAIN saved_tcio;
 
 value line_set_nth_char line i c =
   if i == String.length line.buf then line.buf := line.buf ^ String.make 1 c
