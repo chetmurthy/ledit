@@ -179,14 +179,12 @@ value put_newline st = prerr_endline "";
 value flush_out st = flush stderr;
 value bell () = do { prerr_string "\007"; flush stderr };
 
-open Unix;
-
 value saved_tcio =
-  try tcgetattr stdin with
+  try Unix.tcgetattr Unix.stdin with
   [ Unix.Unix_error _ _ _ ->
       do {
         Printf.eprintf "Error: standard input is not a terminal\n";
-        flush Pervasives.stderr;
+        flush stderr;
         exit 1
       } ]
 ;
@@ -197,19 +195,19 @@ value set_edit () =
     match edit_tcio.val with
     [ Some e -> e
     | None ->
-        let tcio = tcgetattr stdin in
+        let tcio = Unix.tcgetattr Unix.stdin in
         do {
-          tcio.c_echo := False;
-          tcio.c_icanon := False;
-          tcio.c_vmin := 1;
-          tcio.c_isig := False;
-          tcio.c_ixon := False;
+          tcio.Unix.c_echo := False;
+          tcio.Unix.c_icanon := False;
+          tcio.Unix.c_vmin := 1;
+          tcio.Unix.c_isig := False;
+          tcio.Unix.c_ixon := False;
           edit_tcio.val := Some tcio;
           tcio
         } ]
   in
-  tcsetattr stdin TCSADRAIN tcio
-and unset_edit () = tcsetattr stdin TCSADRAIN saved_tcio;
+  Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio
+and unset_edit () = Unix.tcsetattr Unix.stdin Unix.TCSADRAIN saved_tcio;
 
 value line_set_nth_char line i c =
   if i == String.length line.buf then line.buf := line.buf ^ String.make 1 c
@@ -887,10 +885,12 @@ and open_histfile trunc file =
       | _ -> () ]
     else ();
     let fd =
-      openfile file ([O_WRONLY; O_CREAT] @ (if trunc then [O_TRUNC] else []))
+      Unix.openfile file
+        ([Unix.O_WRONLY; Unix.O_CREAT] @
+           (if trunc then [Unix.O_TRUNC] else []))
         0o666
     in
-    let fdo = out_channel_of_descr fd in
+    let fdo = Unix.out_channel_of_descr fd in
     if not trunc then seek_out fdo (out_channel_length fdo) else ();
     st.histfile := Some fdo
   }
@@ -907,11 +907,11 @@ value (set_prompt, get_prompt, input_char) =
   let set_prompt x = prompt.val := x
   and get_prompt () = prompt.val
   and input_char ic =
-    if ic != Pervasives.stdin then input_char ic
+    if ic != stdin then input_char ic
     else do {
       if ind.val > String.length buff.val then do {
         prerr_string prompt.val;
-        flush Pervasives.stderr;
+        flush stderr;
         try
           do { set_edit (); buff.val := edit_line (); unset_edit () }
         with e ->

@@ -62,8 +62,6 @@ let rec arg_loop i =
 in
 arg_loop 1;
 
-open Unix;
-
 value string_of_signal =
   fun
   [ 2 -> "Interrupted"
@@ -76,7 +74,7 @@ value string_of_signal =
 value rec read_loop () =
   do {
     try
-      match input_char Pervasives.stdin with
+      match input_char stdin with
       [ '\n' -> print_newline ()
       | x -> print_char x ]
     with
@@ -86,27 +84,27 @@ value rec read_loop () =
 ;
 
 value stupid_hack_to_avoid_sys_error_at_exit () =
-  dup2 (openfile "/dev/null" [O_WRONLY] 0) stdout
+  Unix.dup2 (Unix.openfile "/dev/null" [Unix.O_WRONLY] 0) Unix.stdout
 ;
 
 value go () =
-  let (id, od) = pipe () in
-  let pid = fork () in
+  let (id, od) = Unix.pipe () in
+  let pid = Unix.fork () in
   if pid < 0 then failwith "fork"
   else if pid > 0 then do {
-    dup2 od stdout;
-    close id;
-    close od;
+    Unix.dup2 od Unix.stdout;
+    Unix.close id;
+    Unix.close od;
     set_son pid;
     let _ : signal_behavior =
       signal sigchld
         (Signal_handle
            (fun _ ->
-              match snd (waitpid [WNOHANG] pid) with
-              [ WSIGNALED sign ->
+              match snd (Unix.waitpid [Unix.WNOHANG] pid) with
+              [ Unix.WSIGNALED sign ->
                   do {
                     prerr_endline (string_of_signal sign);
-                    flush Pervasives.stderr;
+                    flush stderr;
                     raise End_of_file
                   }
               | _ -> raise End_of_file ]))
@@ -122,20 +120,20 @@ value go () =
     with x ->
       let _ : signal_behavior = signal sigchld Signal_ignore in
       do {
-        try do { close stdout; let _ = wait () in () } with
-        [ Unix_error _ _ _ -> () ];
+        try do { Unix.close Unix.stdout; let _ = Unix.wait () in () } with
+        [ Unix.Unix_error _ _ _ -> () ];
         stupid_hack_to_avoid_sys_error_at_exit ();
         match x with
         [ End_of_file -> ()
         | _ ->
-            do { prerr_string "(ledit) "; flush Pervasives.stderr; raise x } ]
+            do { prerr_string "(ledit) "; flush stderr; raise x } ]
       }
   }
   else do {
-    dup2 id stdin;
-    close id;
-    close od;
-    execvp comm.val args.val;
+    Unix.dup2 id Unix.stdin;
+    Unix.close id;
+    Unix.close od;
+    Unix.execvp comm.val args.val;
     failwith "execv"
   }
 ;
@@ -146,7 +144,7 @@ value handle f a =
       do {
         Printf.eprintf "Unix error: %s\nOn function %s %s\n"
           (Unix.error_message code) fname param;
-        flush Pervasives.stderr;
+        flush stderr;
         exit 2
       }
   | e -> Printexc.catch raise e ]
