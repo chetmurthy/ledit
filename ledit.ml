@@ -432,6 +432,20 @@ value downcase_word st =
     (fun _ i -> i) i
 ;
 
+value transpose_chars st =
+  if st.line.cur == st.line.len then
+    let c = st.line.buf.[st.line.cur-1] in
+    do st.line.buf.[st.line.cur-1] := st.line.buf.[st.line.cur-2];
+       st.line.buf.[st.line.cur-2] := c;
+    return ()
+  else
+    let c = st.line.buf.[st.line.cur] in
+    do st.line.buf.[st.line.cur] := st.line.buf.[st.line.cur-1];
+       st.line.buf.[st.line.cur-1] := c;
+       st.line.cur := st.line.cur + 1;
+    return ()
+;
+
 value set_line st str =
   do st.line.len := 0;
      st.line.cur := 0;
@@ -647,12 +661,8 @@ value rec update_line st comm c =
         return ()
       else ()
   | Transpose_chars ->
-      if st.line.cur > 1 then
-        let c = st.line.buf.[st.line.cur-1] in
-        do st.line.buf.[st.line.cur-1] := st.line.buf.[st.line.cur-2];
-           st.line.buf.[st.line.cur-2] := c;
-           update_output st;
-        return ()
+      if st.line.len > 1 && st.line.cur > 0 then
+        do transpose_chars st; update_output st; return ()
       else ()
   | Kill_word ->
       if st.line.cur < st.line.len then
