@@ -51,6 +51,7 @@ type command =
   | Self_insert
   | Start_csi_sequence
   | Start_escape_sequence
+  | Start_o_sequence
   | Suspend
   | Transpose_chars
   | Unix_line_discard
@@ -58,7 +59,7 @@ type command =
   | Yank ]
 ;
 
-type istate = [ Normal | Quote | Escape | CSI ];
+type istate = [ Normal | Quote | Escape | CSI | Oseq ];
 
 value (command_of_char, set_char_command) =
   let command_vect = Array.create 256 Self_insert in
@@ -73,6 +74,12 @@ value (escape_command_of_char, set_escape_command) =
 ;
 
 value (csi_command_of_char, set_csi_command) =
+  let command_vect = Array.create 256 Abort in
+  (fun c -> command_vect.(Char.code c),
+   fun c comm -> command_vect.(Char.code c) := comm)
+;
+
+value (o_command_of_char, set_o_command) =
   let command_vect = Array.create 256 Abort in
   (fun c -> command_vect.(Char.code c),
    fun c comm -> command_vect.(Char.code c) := comm)
@@ -123,11 +130,16 @@ do set_char_command '\001' (* ^a *)    Beginning_of_line;
    set_escape_command '\008' (* ^h *)  Backward_kill_word;
    set_escape_command '\127' (* del *) Backward_kill_word;
    set_escape_command '['              Start_csi_sequence;
+   set_escape_command 'O'              Start_o_sequence;
    set_escape_command '/'              Expand_abbrev;
    set_csi_command 'A' Previous_history;
    set_csi_command 'B' Next_history;
    set_csi_command 'C' Forward_char;
    set_csi_command 'D' Backward_char;
+   set_o_command 'A' Previous_history;
+   set_o_command 'B' Next_history;
+   set_o_command 'C' Forward_char;
+   set_o_command 'D' Backward_char;
 return ()
 ;
 
@@ -681,6 +693,7 @@ value rec update_line st comm c =
   | Quoted_insert -> st.istate := Quote
   | Start_escape_sequence -> st.istate := Escape
   | Start_csi_sequence -> st.istate := CSI
+  | Start_o_sequence -> st.istate := Oseq
   | Self_insert ->
       do insert_char st c;
          st.line.cur := st.line.cur + 1;
@@ -767,7 +780,8 @@ value edit_line () =
       [ Quote -> Self_insert
       | Normal -> command_of_char c
       | Escape -> escape_command_of_char c
-      | CSI -> csi_command_of_char c ]
+      | CSI -> csi_command_of_char c
+      | Oseq -> o_command_of_char c ]
     in
     do st.istate := Normal; st.last_comm := comm; return
     match comm with
