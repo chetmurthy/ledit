@@ -18,11 +18,10 @@ ledit.l: ledit.l.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
 	sed s/LEDIT_VERSION/$$VERSION/ ledit.l.tpl > ledit.l
 
-ledit.cmo: ledit.ml pa_local.cmo
-	$(COMP) -pp "$(PP) ./pa_local.cmo" -c $<
-
 pa_local.cmo: pa_local.ml
-	$(COMP) -pp "$(PP) pa_extend.cmo q_MLast.cmo" -I `camlp4 -where` -c pa_local.ml
+	$(PP) pa_extend.cmo q_MLast.cmo -warn_seq pa_local.ml -o pa_local.ppo
+	$(COMP) -I `camlp4 -where` -c -impl pa_local.ppo
+	/bin/rm -f pa_local.ppo
 
 clean:
 	/bin/rm -f *.cm[oix] *.pp[oi] *.o *.bak $(TARGET) ledit.l
@@ -33,13 +32,22 @@ install:
 	-cp ledit.l $(MANDIR)/ledit.l
 
 depend:
-	ocamldep *.mli *.ml > .depend
+	> .depend.new
+	for i in $(ZOFILES:.cmo=.ml); do \
+	  $(PP) ./pa_local.cmo pr_depend.cmo $$i >> .depend.new; \
+	done
+	mv .depend .depend.old
+	mv .depend.new .depend
 
 include .depend
 
 .ml.cmo:
-	$(COMP) -pp $(PP) -c $<
+	$(PP) ./pa_local.cmo -warn_seq $< -o $*.ppo
+	$(COMP) -c -impl $*.ppo
+	/bin/rm -f $*.ppo
 .mli.cmi:
-	$(COMP) -pp $(PP) -c $<
+	$(PP) $< -o $*.ppi
+	$(COMP) -c -intf $*.ppi
+	/bin/rm -f $*.ppi
 
 .SUFFIXES: .ml .cmo .mli .cmi

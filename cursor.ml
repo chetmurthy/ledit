@@ -4,7 +4,7 @@
 (*                                                                     *)
 (*       Daniel de Rauglaudre, projet Cristal, INRIA Rocquencourt      *)
 (*                                                                     *)
-(*  Copyright 1997 Institut National de Recherche en Informatique et   *)
+(*  Copyright 2001 Institut National de Recherche en Informatique et   *)
 (*  Automatique.  Distributed only by permission.                      *)
 (*                                                                     *)
 (***********************************************************************)
@@ -20,13 +20,13 @@ value create () = {before = []; after = []};
 value before c =
   match c.before with
   [ [] -> raise Failure
-  | [x :: l] -> do c.after := [x :: c.after]; c.before := l; return () ]
+  | [x :: l] -> do { c.after := [x :: c.after]; c.before := l } ]
 ;
 
 value after c =
   match c.after with
   [ [] -> raise Failure
-  | [x :: l] -> do c.after := l; c.before := [x :: c.before]; return () ]
+  | [x :: l] -> do { c.after := l; c.before := [x :: c.before] } ]
 ;
 
 value insert c x = c.before := [x :: c.before];
@@ -40,10 +40,12 @@ value normalize c =
 ;
 
 value peek c =
-  do normalize c; return
-  match c.after with
-  [ [x :: _] -> x
-  | [] -> raise Failure ]
+  do {
+    normalize c;
+    match c.after with
+    [ [x :: _] -> x
+    | [] -> raise Failure ]
+  }
 ;
 
 value peek_last c =
@@ -53,23 +55,21 @@ value peek_last c =
     | [x] -> x
     | [_ :: l] -> peek_rec l ]
   in
-  do normalize c; return peek_rec c.after
+  do { normalize c; peek_rec c.after }
 ;
 
 value rec goto_first c =
   match c.before with
   [ [] -> ()
   | [x :: l] ->
-      do c.after := [x :: c.after]; c.before := l; goto_first c; return () ]
+      do { c.after := [x :: c.after]; c.before := l; goto_first c } ]
 ;
 
 value rec goto_last c =
   match c.after with
   [ [] -> ()
   | [x :: l] ->
-      do c.before := [x :: c.before]; c.after := l; goto_last c; return () ]
+      do { c.before := [x :: c.before]; c.after := l; goto_last c } ]
 ;
 
-value get_all c =
-  c.before @ List.rev c.after
-;
+value get_all c = c.before @ List.rev c.after;
