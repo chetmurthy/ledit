@@ -4,7 +4,7 @@ BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib
 MANDIR=/usr/man/manl
 COMP=ocamlc
-PP=camlp4 -L pa_r -L pr_dump
+PP=camlp4 pa_r.cmo pr_dump.cmo
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 
