@@ -5,7 +5,7 @@
 #load "pa_extfun.cmo";
 
 open Pcaml;
-open Pretty;
+open Spretty;
 
 value loc = (0, 0);
 
