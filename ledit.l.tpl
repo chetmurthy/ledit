@@ -130,7 +130,7 @@ it and its command... Use "exec ledit comm" instead of "ledit comm".
 The suspend command stops \fIledit\fP but not the called program. Do not
 do this if the called program is not waiting on standard input.
 .br
-In some systems (e.g. alpha), pasting of two many characters works bad and
+In some systems (e.g. alpha), pasting two many characters works bad and
 may block the terminal. Probably a kernel problem. No solution.
 
 .SH AUTHOR
