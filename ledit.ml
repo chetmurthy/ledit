@@ -59,7 +59,13 @@ type command =
   | Yank ]
 ;
 
-type istate = [ Normal | Quote | Escape | CSI | Oseq ];
+type istate =
+  [ Normal
+  | Quote
+  | Escape
+  | CSI
+  | Oseq ]
+;
 
 value (command_of_char, set_char_command) =
   let command_vect = Array.create 256 Self_insert in
@@ -132,8 +138,7 @@ do {
   set_escape_command '\127' (* del *) Backward_kill_word;
   set_escape_command '[' (*        *) Start_csi_sequence;
   set_escape_command 'O' (*        *) Start_o_sequence;
-  set_escape_command '/' (*
-        *) Expand_abbrev;
+  set_escape_command '/' (*        *) Expand_abbrev;
   set_csi_command 'A' Previous_history;
   set_csi_command 'B' Next_history;
   set_csi_command 'C' Forward_char;
