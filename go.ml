@@ -80,7 +80,7 @@ value rec read_loop () =
   return read_loop ()
 ;
 
-value stupid_trick_to_avoid_sys_error_at_exit () =
+value stupid_hack_to_avoid_sys_error_at_exit () =
   dup2 (openfile "/dev/null" [O_WRONLY] 0) stdout
 ;
 
@@ -114,7 +114,7 @@ value go () =
       do signal sigchld Signal_ignore;
          try do close stdout; return let _ = wait () in () with
          [ Unix_error _ _ _ -> () ];
-         stupid_trick_to_avoid_sys_error_at_exit ();
+         stupid_hack_to_avoid_sys_error_at_exit ();
       return
       match x with
       [ End_of_file -> ()

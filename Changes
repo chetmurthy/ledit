@@ -1,8 +1,8 @@
 Ledit Version 1.6
 -----------------
 - Added hack to avoid
-    Fatal error: uncaught exception Sys_error("Bad file number")
-  which sometimes happens.
+     Fatal error: uncaught exception Sys_error("Bad file number")
+  which sometimes happens when exiting ledit
 
 Ledit Version 1.5
 -----------------
