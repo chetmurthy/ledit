@@ -1,3 +1,10 @@
+Ledit Version 1.4
+-----------------
+- Added M-backspace or M-delete for backward-kill-word
+- Tabulations are expanded
+- Fixed bug printing chars between ascii 128 to ascii 159
+- "-c" optional: "ledit comm args" <=> "ledit -c comm args"
+
 Ledit Version 1.3
 -----------------
 - Added expand abbrev M-/

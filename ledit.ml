@@ -15,11 +15,11 @@ type command =
   | Accept_line
   | Backward_char
   | Backward_delete_char
+  | Backward_kill_word
   | Backward_word
   | Beginning_of_history
   | Beginning_of_line
   | Delete_char
-  | Delete_word
   | End_of_history
   | End_of_line
   | Expand_abbrev
@@ -27,6 +27,7 @@ type command =
   | Forward_word
   | Interrupt
   | Kill_line
+  | Kill_word
   | Next_history
   | Operate_and_get_next
   | Previous_history
@@ -62,41 +63,45 @@ value (csi_command_of_char, set_csi_command) =
    fun c comm -> command_vect.(Char.code c) := comm)
 ;
 
-do set_char_command '\001' (* ^a *)  Beginning_of_line;
-   set_char_command '\005' (* ^e *)  End_of_line;
-   set_char_command '\006' (* ^f *)  Forward_char;
-   set_char_command '\002' (* ^b *)  Backward_char;
-   set_char_command '\230' (* M-f *) Forward_word;
-   set_char_command '\226' (* M-b *) Backward_word;
-   set_char_command '\016' (* ^p *)  Previous_history;
-   set_char_command '\014' (* ^n *)  Next_history;
-   set_char_command '\188' (* M-< *) Beginning_of_history;
-   set_char_command '\190' (* M-> *) End_of_history;
-   set_char_command '\018' (* ^r *)  Reverse_search_history;
-   set_char_command '\004' (* ^d *)  Delete_char;
-   set_char_command '\008' (* ^h *)  Backward_delete_char;
-   set_char_command '\127' (* del *) Backward_delete_char;
-   set_char_command '\228' (* M-d *) Delete_word;
-   set_char_command '\017' (* ^q *)  Quoted_insert;
-   set_char_command '\011' (* ^k *)  Kill_line;
-   set_char_command '\025' (* ^y *)  Yank;
-   set_char_command '\021' (* ^u *)  Unix_line_discard;
-   set_char_command '\012' (* ^l *)  Refresh_line;
-   set_char_command '\007' (* ^g *)  Abort;
-   set_char_command '\003' (* ^c *)  Interrupt;
-   set_char_command '\026' (* ^z *)  Suspend;
-   set_char_command '\028' (* ^\ *)  Quit;
-   set_char_command '\n'             Accept_line;
-   set_char_command '\024' (* ^x *)  Operate_and_get_next;
-   set_char_command '\027' (* ^x *)  Start_escape_sequence;
-   set_char_command '\175' (* M-/ *) Expand_abbrev;
-   set_escape_command 'f' Forward_word;
-   set_escape_command 'b' Backward_word;
-   set_escape_command '<' Beginning_of_history;
-   set_escape_command '>' End_of_history;
-   set_escape_command 'd' Delete_word;
-   set_escape_command '[' Start_csi_sequence;
-   set_escape_command '/' Expand_abbrev;
+do set_char_command '\001' (* ^a *)    Beginning_of_line;
+   set_char_command '\005' (* ^e *)    End_of_line;
+   set_char_command '\006' (* ^f *)    Forward_char;
+   set_char_command '\002' (* ^b *)    Backward_char;
+   set_char_command '\230' (* M-f *)   Forward_word;
+   set_char_command '\226' (* M-b *)   Backward_word;
+   set_char_command '\016' (* ^p *)    Previous_history;
+   set_char_command '\014' (* ^n *)    Next_history;
+   set_char_command '\188' (* M-< *)   Beginning_of_history;
+   set_char_command '\190' (* M-> *)   End_of_history;
+   set_char_command '\018' (* ^r *)    Reverse_search_history;
+   set_char_command '\004' (* ^d *)    Delete_char;
+   set_char_command '\008' (* ^h *)    Backward_delete_char;
+   set_char_command '\127' (* del *)   Backward_delete_char;
+   set_char_command '\228' (* M-d *)   Kill_word;
+   set_char_command '\136' (* M-^h *)  Backward_kill_word;
+   set_char_command '\255' (* M-del *) Backward_kill_word;
+   set_char_command '\017' (* ^q *)    Quoted_insert;
+   set_char_command '\011' (* ^k *)    Kill_line;
+   set_char_command '\025' (* ^y *)    Yank;
+   set_char_command '\021' (* ^u *)    Unix_line_discard;
+   set_char_command '\012' (* ^l *)    Refresh_line;
+   set_char_command '\007' (* ^g *)    Abort;
+   set_char_command '\003' (* ^c *)    Interrupt;
+   set_char_command '\026' (* ^z *)    Suspend;
+   set_char_command '\028' (* ^\ *)    Quit;
+   set_char_command '\n'               Accept_line;
+   set_char_command '\024' (* ^x *)    Operate_and_get_next;
+   set_char_command '\027' (* ^x *)    Start_escape_sequence;
+   set_char_command '\175' (* M-/ *)   Expand_abbrev;
+   set_escape_command 'f'              Forward_word;
+   set_escape_command 'b'              Backward_word;
+   set_escape_command '<'              Beginning_of_history;
+   set_escape_command '>'              End_of_history;
+   set_escape_command 'd'              Kill_word;
+   set_escape_command '\008' (* ^h *)  Backward_kill_word;
+   set_escape_command '\127' (* del *) Backward_kill_word;
+   set_escape_command '['              Start_csi_sequence;
+   set_escape_command '/'              Expand_abbrev;
    set_csi_command 'A' Previous_history;
    set_csi_command 'B' Next_history;
    set_csi_command 'C' Forward_char;
@@ -160,7 +165,12 @@ value line_to_nd st =
     if i < st.line.len then
       let c = st.line.buf.[i] in
       let ic = Char.code c in
-      do if ic < 32 || ic == 127 then
+      do if c = '\t' then
+           for i = st.nd.len + 1 to (st.nd.len + 8) / 8 * 8 do
+             line_set_nth_char st.nd st.nd.len ' ';
+             st.nd.len := st.nd.len + 1;
+           done
+         else if ic < 32 || ic == 127 then
            do line_set_nth_char st.nd st.nd.len '^';
               line_set_nth_char st.nd (st.nd.len + 1)
                 (Char.chr (127 land (ic + 64)));
@@ -174,6 +184,14 @@ value line_to_nd st =
                 (Char.chr (ic mod 100 / 10 + Char.code '0'));
               line_set_nth_char st.nd (st.nd.len + 3)
                 (Char.chr (ic mod 10 + Char.code '0'));
+              st.nd.len := st.nd.len + 4;
+           return ()
+         else if ic >= 128 && ic < 160 then
+           do line_set_nth_char st.nd st.nd.len 'M';
+              line_set_nth_char st.nd (st.nd.len + 1) '-';
+              line_set_nth_char st.nd (st.nd.len + 2) '^';
+              line_set_nth_char st.nd (st.nd.len + 3)
+                (Char.chr (127 land (ic + 64)));
               st.nd.len := st.nd.len + 4;
            return ()
          else
@@ -335,17 +353,24 @@ value get_word_len st =
   i - backward_move st.line (fun mv i -> mv (i - 1)) (fun _ i -> i) i
 ;
 
-value delete_word st =
+value kill_word st =
   let i = st.line.cur in
   let i =
     forward_move st.line (fun _ i -> i)
       (fun mv i -> do delete_char st; return mv i) i
   in
-  let i =
-    forward_move st.line (fun mv i -> do delete_char st; return mv i)
-      (fun _ i -> i) i
-  in
-  ()
+  forward_move st.line (fun mv i -> do delete_char st; return mv i)
+    (fun _ i -> i) i
+;
+
+value backward_kill_word st =
+  let k = backward_word st.line in
+  let sh = st.line.cur - k in
+  do st.line.len := st.line.len - sh;
+     for i = k to st.line.len - 1 do
+       st.line.buf.[i] := st.line.buf.[i + sh];
+     done;
+  return k
 ;
 
 value set_line st str =
@@ -492,9 +517,13 @@ value rec update_line st comm c =
         do st.line.cur := st.line.cur - 1; delete_char st; update_output st;
         return ()
       else ()
-  | Delete_word ->
+  | Kill_word ->
       if st.line.cur < st.line.len then
-        do delete_word st; update_output st; return ()
+        do st.line.cur := kill_word st; update_output st; return ()
+      else ()
+  | Backward_kill_word ->
+      if st.line.cur > 0 then
+        do st.line.cur := backward_kill_word st; update_output st; return ()
       else ()
   | Quoted_insert -> st.istate := Quote
   | Start_escape_sequence -> st.istate := Escape

@@ -58,31 +58,31 @@ this case, use the manipulation with "escape").
 The editing commands are:
 .nf
 
-      ^a  : beginning of line
-      ^e  : end of line
-      ^f  : forward char
-      ^b  : backward char
-      M-f : forward word
-      M-b : backard word
-      ^p  : previous line in history
-      ^n  : next line in history
-      M-< : first line in history
-      M-> : last line in history
-      ^r  : reverse search in history (see below)
-      ^d  : delete char (or EOF if the line is empty)
-      ^h  : (or backspace) backward delete char
-      del : backward delete char
-      M-d : delete word
-      ^q  : insert next char
-      M-/ : expand abbreviation
-      ^k  : cut until end of line
-      ^y  : paste
-      ^u  : line discard
-      ^l  : refresh line
-      ^g  : abort prefix
-      ^c  : interrupt
-      ^z  : suspend
-      ^\\  : quit
+      ^a   : beginning of line
+      ^e   : end of line
+      ^f   : forward char
+      ^b   : backward char
+      M-f  : forward word
+      M-b  : backard word
+      ^p   : previous line in history
+      ^n   : next line in history
+      M-<  : first line in history
+      M->  : last line in history
+      ^r   : reverse search in history (see below)
+      ^d   : delete char (or EOF if the line is empty)
+      ^h   : (or del or backspace) backward delete char
+      M-d  : kill word
+      M-^h : (or M-del or M-backspace) backward kill word
+      ^q   : insert next char
+      M-/  : expand abbreviation
+      ^k   : cut until end of line
+      ^y   : paste
+      ^u   : line discard
+      ^l   : refresh line
+      ^g   : abort prefix
+      ^c   : interrupt
+      ^z   : suspend
+      ^\\   : quit
       return : send line
       ^x     : send line and show next history line
       other  : insert char
