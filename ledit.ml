@@ -124,7 +124,7 @@ do {
   set_char_command '\028' (* ^\    *) Quit;
   set_char_command '\n' (*         *) Accept_line;
   set_char_command '\024' (* ^x    *) Operate_and_get_next;
-  set_char_command '\027' (* ^x    *) Start_escape_sequence;
+  set_char_command '\027' (* esc   *) Start_escape_sequence;
   set_char_command '\175' (* M-/   *) Expand_abbrev;
   set_escape_command 'f' (*        *) Forward_word;
   set_escape_command 'b' (*        *) Backward_word;
