@@ -229,7 +229,7 @@ value balance_paren st =
         do st.line.cur := i;
            update_output st;
            st.line.cur := c;
-           for i = 0 to 60000 do (); done;
+           let _ = Unix.select [Unix.stdin] [] [] 1.0 in ();
         return ()
       else ()
   | _ -> () ]
