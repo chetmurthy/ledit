@@ -162,6 +162,7 @@ type state =
   { od : line;
     nd : line;
     line : line;
+    last_line : mutable string;
     iso_8859_1 : bool;
     istate : mutable istate;
     shift : mutable int;
@@ -488,9 +489,19 @@ value set_line st str =
   }
 ;
 
+value save_if_last st =
+  if Cursor.is_last_line st.history then
+    st.last_line := String.sub st.line.buf 0 st.line.len
+  else ()
+;
+
 value previous_history st =
   try
-    do { Cursor.before st.history; set_line st (Cursor.peek st.history) }
+    do {
+      save_if_last st;
+      Cursor.before st.history;
+      set_line st (Cursor.peek st.history)
+    }
   with
   [ Cursor.Failure -> bell () ]
 ;
@@ -499,7 +510,7 @@ value next_history st =
   try
     do { Cursor.after st.history; set_line st (Cursor.peek st.history) }
   with
-  [ Cursor.Failure -> bell () ]
+  [ Cursor.Failure -> set_line st st.last_line ]
 ;
 
 value read_char =
@@ -583,6 +594,7 @@ value reverse_search_history st =
 
 value rec beginning_of_history st =
   do {
+    save_if_last st;
     Cursor.goto_first st.history;
     try set_line st (Cursor.peek st.history) with
     [ Cursor.Failure -> bell () ]
@@ -592,8 +604,7 @@ value rec beginning_of_history st =
 value rec end_of_history st =
   do {
     Cursor.goto_last st.history;
-    try set_line st (Cursor.peek st.history) with
-    [ Cursor.Failure -> bell () ]
+    set_line st st.last_line
   }
 ;
 
@@ -818,7 +829,7 @@ value save_history st line =
 
 local st =
   {od = {buf = ""; cur = 0; len = 0}; nd = {buf = ""; cur = 0; len = 0};
-   line = {buf = ""; cur = 0; len = 0};
+   line = {buf = ""; cur = 0; len = 0}; last_line = "";
    iso_8859_1 = try Sys.getenv "LC_CTYPE" <> "" with [ Not_found -> False ];
    istate = Normal; shift = 0; cut = ""; last_comm = Accept_line;
    histfile = None; history = Cursor.create (); abbrev = None}
