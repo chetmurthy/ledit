@@ -1,3 +1,8 @@
+Ledit Version 1.3
+-----------------
+- Expand abbrev M-/
+- Fixed bug ^l did not work
+
 Ledit Version 1.2
 -----------------
 - Possible use of keyboard arrows

@@ -13,3 +13,4 @@ value peek : t 'a -> 'a;
 value peek_last : t 'a -> 'a;
 value goto_first : t 'a -> unit;
 value goto_last : t 'a -> unit;
+value get_all : t 'a -> list 'a;

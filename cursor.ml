@@ -59,3 +59,6 @@ value rec goto_last c =
       do c.before := [x :: c.before]; c.after := l; goto_last c; return () ]
 ;
 
+value get_all c =
+  c.before @ List.rev c.after
+;

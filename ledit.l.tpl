@@ -74,6 +74,7 @@ The editing commands are:
       del : backward delete char
       M-d : delete word
       ^q  : insert next char
+      M-/ : expand abbreviation
       ^k  : cut until end of line
       ^y  : paste
       ^u  : line discard

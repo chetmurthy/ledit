@@ -22,6 +22,7 @@ type command =
   | Delete_word
   | End_of_history
   | End_of_line
+  | Expand_abbrev
   | Forward_char
   | Forward_word
   | Interrupt
@@ -86,12 +87,14 @@ do set_char_command '\001' (* ^a *)  Beginning_of_line;
    set_char_command '\n'             Accept_line;
    set_char_command '\024' (* ^x *)  Operate_and_get_next;
    set_char_command '\027' (* ^x *)  Start_escape_sequence;
+   set_char_command '\175' (* M-/ *) Expand_abbrev;
    set_escape_command 'f' Forward_word;
    set_escape_command 'b' Backward_word;
    set_escape_command '<' Beginning_of_history;
    set_escape_command '>' End_of_history;
    set_escape_command 'd' Delete_word;
    set_escape_command '[' Start_csi_sequence;
+   set_escape_command '/' Expand_abbrev;
    set_csi_command 'A' Previous_history;
    set_csi_command 'B' Next_history;
    set_csi_command 'C' Forward_char;
@@ -100,6 +103,13 @@ return ()
 ;
 
 type line = { buf : mutable string; cur : mutable int; len : mutable int };
+type abbrev_data =
+  { hist : list string;
+    rpos : int;
+    clen : int;
+    abbr : string;
+    found : list string }
+;
 
 type state =
   { od : line;
@@ -112,6 +122,7 @@ type state =
     last_comm : mutable command;
     histfile : mutable option out_channel;
     history : mutable Cursor.t string;
+    abbrev : mutable option abbrev_data;
     echo : mutable bool }
 ;
 
@@ -279,40 +290,43 @@ value insert_char st x =
   return ()
 ;
 
-value move_in_word st e f g =
+value move_in_word buf e f g =
   move_rec where rec move_rec i =
     if e i then i
     else
-      match st.line.buf.[i] with
+      match buf.[i] with
       [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> f move_rec i
-      | _ -> g move_rec i ]
+      | x -> if Char.code x >= 160 then f move_rec i else g move_rec i ]
 ;
 
-value forward_move st = move_in_word st (fun i -> i == st.line.len);
-value backward_move st = move_in_word st (fun i -> i == -1);
+value forward_move line = move_in_word line.buf (fun i -> i == line.len);
+value backward_move line = move_in_word line.buf (fun i -> i == -1);
 
-value forward_word st =
-  let i = st.line.cur in
-  let i = forward_move st (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
-  let i = forward_move st (fun mv i -> mv (i + 1)) (fun _ i -> i) i in
-  st.line.cur := i
+value forward_word line =
+  let i = line.cur in
+  let i = forward_move line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
+  forward_move line (fun mv i -> mv (i + 1)) (fun _ i -> i) i
 ;
 
-value backward_word st =
+value backward_word line =
+  let i = line.cur - 1 in
+  let i = backward_move line (fun _ i -> i) (fun mv i -> mv (i - 1)) i in
+  backward_move line (fun mv i -> mv (i - 1)) (fun _ i -> i) i + 1
+;
+
+value get_word_len st =
   let i = st.line.cur - 1 in
-  let i = backward_move st (fun _ i -> i) (fun mv i -> mv (i - 1)) i in
-  let i = backward_move st (fun mv i -> mv (i - 1)) (fun _ i -> i) i in
-  st.line.cur := i + 1
+  i - backward_move st.line (fun mv i -> mv (i - 1)) (fun _ i -> i) i
 ;
 
 value delete_word st =
   let i = st.line.cur in
   let i =
-    forward_move st (fun _ i -> i)
+    forward_move st.line (fun _ i -> i)
       (fun mv i -> do delete_char st; return mv i) i
   in
   let i =
-    forward_move st (fun mv i -> do delete_char st; return mv i)
+    forward_move st.line (fun mv i -> do delete_char st; return mv i)
       (fun _ i -> i) i
   in
   ()
@@ -439,10 +453,11 @@ value rec update_line st comm c =
       else ()
   | Forward_word ->
       if st.line.cur < st.line.len then
-        do forward_word st; update_output st; return ()
+        do st.line.cur := forward_word st.line; update_output st; return ()
       else ()
   | Backward_word ->
-      if st.line.cur > 0 then do backward_word st; update_output st; return ()
+      if st.line.cur > 0 then
+        do st.line.cur := backward_word st.line; update_output st; return ()
       else ()
   | Previous_history -> do previous_history st; update_output st; return ()
   | Next_history -> do next_history st; update_output st; return ()
@@ -472,6 +487,12 @@ value rec update_line st comm c =
       do insert_char st c;
          st.line.cur := st.line.cur + 1;
          balance_paren st c;
+         update_output st;
+      return ()
+  | Refresh_line ->
+      do put_newline st;
+         st.od.cur := 0;
+         st.od.len := 0;
          update_output st;
       return ()
   | Kill_line ->
@@ -509,6 +530,48 @@ value rec update_line st comm c =
   | _ -> () ]
 ;
 
+value rec back_search st ad hist rpos =
+  match hist with
+  [ [] ->
+      do for i = 0 to String.length ad.abbr - 1 do
+           insert_char st ad.abbr.[i]; st.line.cur := st.line.cur + 1;
+         done;
+      return bell ()
+  | [l :: ll] ->
+      let i = String.length l - rpos in
+      if i <= 0 then back_search st ad ll 0
+      else
+        let i = backward_word {buf = l; cur = i; len = String.length l} in
+        if String.length l - i < String.length ad.abbr then
+          back_search st ad [l :: ll] (String.length l - i)
+        else if String.sub l i (String.length ad.abbr) = ad.abbr then
+          let i1 = forward_word {buf = l; cur = i; len = String.length l} in
+          let f = String.sub l i (i1 - i) in
+          if List.mem f ad.found then
+            back_search st ad [l :: ll] (String.length l - i)
+          else
+            let ad =
+              {hist = [l :: ll]; rpos = String.length l - i1; clen = i1 - i;
+               abbr = ad.abbr; found = [f :: ad.found]}
+            in
+            do st.abbrev := Some ad;
+               for i = 0 to String.length f - 1 do
+                 insert_char st f.[i]; st.line.cur := st.line.cur + 1;
+               done;
+            return ()
+        else back_search st ad [l :: ll] (String.length l - i) ]
+;
+
+value expand_abbrev st ad =
+  do for i = 1 to ad.clen do
+       st.line.cur := st.line.cur -  1;
+       delete_char st;
+     done;
+     back_search st ad ad.hist ad.rpos;
+     update_output st;
+  return ()
+;
+
 value save_history st line =
   let last_line =
     try Cursor.peek_last st.history with [ Cursor.Failure -> "" ]
@@ -532,7 +595,8 @@ value (edit_line, open_histfile, close_histfile, set_echo) =
        try Sys.getenv "LC_CTYPE" = "iso_8859_1" with
        [ Not_found -> False ];
      istate = Normal; shift = 0; cut = ""; last_comm = Accept_line;
-     histfile = None; history = Cursor.create (); echo = True}
+     histfile = None; history = Cursor.create (); abbrev = None;
+     echo = True}
   in
   (fun () ->
      let rec edit_loop () =
@@ -554,24 +618,38 @@ value (edit_line, open_histfile, close_histfile, set_echo) =
               put_newline st;
            return
            let line = String.sub st.line.buf 0 st.line.len in
-           do save_history st line; return line
-       | Refresh_line -> do put_newline st; return ""
-       | _ -> do update_line st comm c; return edit_loop () ]
+           do st.abbrev := None; save_history st line; return line
+       | Expand_abbrev ->
+           let ad =
+             match st.abbrev with
+             [ Some x -> x
+             | None ->
+                 let len = get_word_len st in
+                 let abbr = String.sub st.line.buf (st.line.cur - len) len in
+                 let line_beg = String.sub st.line.buf 0 (st.line.cur - len) in
+                 let line_end =
+                   String.sub st.line.buf st.line.cur
+                     (st.line.len - st.line.cur)
+                 in
+                 {hist = [line_beg :: Cursor.get_all st.history @ [line_end]];
+                  rpos = 0; clen = len; abbr = abbr; found = [abbr]} ]
+           in
+           do st.abbrev := None; expand_abbrev st ad; return edit_loop ()
+       | _ ->
+           do st.abbrev := None; update_line st comm c; return edit_loop () ]
      in
      do st.od.len := 0;
         st.od.cur := 0;
-        if st.last_comm == Refresh_line then update_output st
-        else
-          do st.line.len := 0; st.line.cur := 0; return
-          if st.last_comm == Operate_and_get_next then
-            try
-              do Cursor.after st.history;
-                 set_line st (Cursor.peek st.history);
-                 update_output st;
-              return ()
-            with
-            [ Cursor.Failure -> () ]
-          else Cursor.goto_last st.history;
+        st.line.len := 0; st.line.cur := 0;
+        if st.last_comm == Operate_and_get_next then
+          try
+            do Cursor.after st.history;
+               set_line st (Cursor.peek st.history);
+               update_output st;
+            return ()
+          with
+          [ Cursor.Failure -> () ]
+        else Cursor.goto_last st.history;
      return edit_loop (),
    fun trunc file ->
      do if not trunc then
