@@ -316,6 +316,14 @@ value next_history st =
   [ Cursor.Failure -> bell () ]
 ;
 
+value read_char =
+  let buff = " " in
+  fun () ->
+    let len = Unix.read Unix.stdin buff 0 1 in
+    if len == 0 then raise End_of_file
+    else buff.[0]
+;
+
 value reverse_search_history st =
   let question str = "(reverse-i-search)'" ^ str ^ "': " in
   let make_line str fstr =
@@ -346,7 +354,7 @@ value reverse_search_history st =
     let q = question str in
     do make_line q fstr; st.line.cur := String.length q - 3; update_output st;
     return
-    let c = input_char stdin in
+    let c = read_char () in
     match command_of_char c with
     [ Self_insert ->
         if c == '\027' then fstr
@@ -501,8 +509,8 @@ value (edit_line, open_histfile, close_histfile, set_echo) =
   (fun () ->
      let rec edit_loop () =
        let c =
-         match input_char Pervasives.stdin with
-         [ '\027' -> Char.chr (Char.code (input_char Pervasives.stdin) + 128)
+         match read_char () with
+         [ '\027' -> Char.chr (Char.code (read_char ()) + 128)
          | c -> c ]
        in
        do st.last_comm := if st.quote then Self_insert else command_of_char c;
