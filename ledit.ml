@@ -163,7 +163,13 @@ value bell () = do prerr_string "\007"; flush stderr; return ();
 
 open Unix;
 
-value saved_tcio = tcgetattr stdin;
+value saved_tcio =
+  try tcgetattr stdin with
+  [ Unix.Unix_error _ _ _ ->
+      do Printf.eprintf "Error: standard input is not a terminal\n";
+         flush Pervasives.stderr;
+      return exit 1 ]
+;
 value edit_tcio = ref None;
 
 value set_edit () =
