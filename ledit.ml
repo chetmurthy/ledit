@@ -37,6 +37,7 @@ type command =
   | Self_insert
   | Start_csi_sequence
   | Start_escape_sequence
+  | Suspend
   | Unix_line_discard
   | Yank ]
 ;
@@ -83,6 +84,7 @@ do set_char_command '\001' (* ^a *)  Beginning_of_line;
    set_char_command '\012' (* ^l *)  Refresh_line;
    set_char_command '\007' (* ^g *)  Abort;
    set_char_command '\003' (* ^c *)  Interrupt;
+   set_char_command '\026' (* ^z *)  Suspend;
    set_char_command '\028' (* ^\ *)  Quit;
    set_char_command '\n'             Accept_line;
    set_char_command '\024' (* ^x *)  Operate_and_get_next;
@@ -122,16 +124,30 @@ type state =
     last_comm : mutable command;
     histfile : mutable option out_channel;
     history : mutable Cursor.t string;
-    abbrev : mutable option abbrev_data;
-    echo : mutable bool }
+    abbrev : mutable option abbrev_data }
 ;
 
 value bs = '\b';
 
-value put_char st c = if not st.echo then output_char stderr c else ();
-value put_newline st = if not st.echo then prerr_endline "" else ();
-value flush_out st = if not st.echo then flush stderr else ();
+value put_char st c = output_char stderr c;
+value put_newline st = prerr_endline "";
+value flush_out st = flush stderr;
 value bell () = do prerr_string "\007"; flush stderr; return ();
+
+open Unix;
+
+value saved_tcio = tcgetattr stdin;
+
+value set_edit () =
+  let tcio = tcgetattr stdin in
+  do tcio.c_echo := False;
+     tcio.c_icanon := False;
+     tcio.c_vmin := 1;
+     tcio.c_isig := False;
+     tcio.c_ixon := False;
+     tcsetattr stdin TCSANOW tcio;
+  return ()
+and unset_edit () = tcsetattr stdin TCSANOW saved_tcio;
 
 value line_set_nth_char line i c =
   if i == String.length line.buf then line.buf := line.buf ^ String.make 1 c
@@ -523,6 +539,14 @@ value rec update_line st comm c =
          [ Some pid -> Unix.kill pid Sys.sigint
          | _ -> () ];
       return ()
+  | Suspend ->
+      do unset_edit ();
+         Unix.kill (Unix.getpid ()) Sys.sigtstp;
+         set_edit ();
+         st.od.cur := 0;
+         st.od.len := 0;
+         update_output st;
+      return ()
   | Quit ->
       match son.val with
       [ Some pid -> Unix.kill pid Sys.sigquit
@@ -585,9 +609,7 @@ value save_history st line =
   else ()
 ;
 
-open Unix;
-
-value (edit_line, open_histfile, close_histfile, set_echo) =
+value (edit_line, open_histfile, close_histfile) =
   let st =
     {od = {buf = ""; cur = 0; len = 0}; nd = {buf = ""; cur = 0; len = 0};
      line = {buf = ""; cur = 0; len = 0};
@@ -595,110 +617,118 @@ value (edit_line, open_histfile, close_histfile, set_echo) =
        try Sys.getenv "LC_CTYPE" = "iso_8859_1" with
        [ Not_found -> False ];
      istate = Normal; shift = 0; cut = ""; last_comm = Accept_line;
-     histfile = None; history = Cursor.create (); abbrev = None;
-     echo = True}
+     histfile = None; history = Cursor.create (); abbrev = None}
   in
-  (fun () ->
-     let rec edit_loop () =
-       let c = read_char () in
-       let comm =
-         match st.istate with
-         [ Quote -> Self_insert
-         | Normal -> command_of_char c
-         | Escape -> escape_command_of_char c
-         | CSI -> csi_command_of_char c ]
-       in
-       do st.istate := Normal; st.last_comm := comm; return
-       match comm with
-       [ Accept_line | Operate_and_get_next ->
-           let v_max_len = max_len.val in
-           do max_len.val := 10000;
+  let edit_line () =
+    let rec edit_loop () =
+      let c = read_char () in
+      let comm =
+        match st.istate with
+        [ Quote -> Self_insert
+        | Normal -> command_of_char c
+        | Escape -> escape_command_of_char c
+        | CSI -> csi_command_of_char c ]
+      in
+      do st.istate := Normal; st.last_comm := comm; return
+      match comm with
+      [ Accept_line | Operate_and_get_next ->
+          let v_max_len = max_len.val in
+          do max_len.val := 10000;
+             update_output st;
+             max_len.val := v_max_len;
+             put_newline st;
+          return
+          let line = String.sub st.line.buf 0 st.line.len in
+          do st.abbrev := None; save_history st line; return line
+      | Expand_abbrev ->
+          let ad =
+            match st.abbrev with
+            [ Some x -> x
+            | None ->
+                let len = get_word_len st in
+                let abbr = String.sub st.line.buf (st.line.cur - len) len in
+                let line_beg = String.sub st.line.buf 0 (st.line.cur - len) in
+                let line_end =
+                  String.sub st.line.buf st.line.cur
+                    (st.line.len - st.line.cur)
+                in
+                {hist = [line_beg :: Cursor.get_all st.history @ [line_end]];
+                 rpos = 0; clen = len; abbr = abbr; found = [abbr]} ]
+          in
+          do st.abbrev := None; expand_abbrev st ad; return edit_loop ()
+      | _ ->
+          do st.abbrev := None; update_line st comm c; return edit_loop () ]
+    in
+    do st.od.len := 0;
+       st.od.cur := 0;
+       st.line.len := 0; st.line.cur := 0;
+       if st.last_comm == Operate_and_get_next then
+         try
+           do Cursor.after st.history;
+              set_line st (Cursor.peek st.history);
               update_output st;
-              max_len.val := v_max_len;
-              put_newline st;
-           return
-           let line = String.sub st.line.buf 0 st.line.len in
-           do st.abbrev := None; save_history st line; return line
-       | Expand_abbrev ->
-           let ad =
-             match st.abbrev with
-             [ Some x -> x
-             | None ->
-                 let len = get_word_len st in
-                 let abbr = String.sub st.line.buf (st.line.cur - len) len in
-                 let line_beg = String.sub st.line.buf 0 (st.line.cur - len) in
-                 let line_end =
-                   String.sub st.line.buf st.line.cur
-                     (st.line.len - st.line.cur)
-                 in
-                 {hist = [line_beg :: Cursor.get_all st.history @ [line_end]];
-                  rpos = 0; clen = len; abbr = abbr; found = [abbr]} ]
-           in
-           do st.abbrev := None; expand_abbrev st ad; return edit_loop ()
-       | _ ->
-           do st.abbrev := None; update_line st comm c; return edit_loop () ]
-     in
-     do st.od.len := 0;
-        st.od.cur := 0;
-        st.line.len := 0; st.line.cur := 0;
-        if st.last_comm == Operate_and_get_next then
-          try
-            do Cursor.after st.history;
-               set_line st (Cursor.peek st.history);
-               update_output st;
-            return ()
-          with
-          [ Cursor.Failure -> () ]
-        else Cursor.goto_last st.history;
-     return edit_loop (),
-   fun trunc file ->
-     do if not trunc then
-          match try Some (open_in file) with _ -> None with
-          [ Some fi ->
-              do try
-                   while True do
-                     Cursor.insert st.history (input_line fi);
-                   done
-                 with
-                 [ End_of_file -> () ];
-                 close_in fi;
-              return ()
-          | _ -> () ]
-        else ();
-     return
-     let fd =
-       openfile file ([O_WRONLY; O_CREAT] @ (if trunc then [O_TRUNC] else []))
-         0o666
-     in
-     let fdo = out_channel_of_descr fd in
-     do if not trunc then seek_out fdo (out_channel_length fdo) else ();
-        st.histfile := Some fdo;
-     return (),
-   fun () ->
-     match st.histfile with
-     [ Some fdo -> close_out fdo
-     | None -> () ],
-   fun e -> st.echo := e)
+           return ()
+         with
+         [ Cursor.Failure -> () ]
+       else Cursor.goto_last st.history;
+    return edit_loop ()
+  and open_histfile trunc file =
+    do if not trunc then
+         match try Some (open_in file) with _ -> None with
+         [ Some fi ->
+             do try
+                  while True do
+                    Cursor.insert st.history (input_line fi);
+                  done
+                with
+                [ End_of_file -> () ];
+                close_in fi;
+             return ()
+         | _ -> () ]
+       else ();
+    return
+    let fd =
+      openfile file ([O_WRONLY; O_CREAT] @ (if trunc then [O_TRUNC] else []))
+        0o666
+    in
+    let fdo = out_channel_of_descr fd in
+    do if not trunc then seek_out fdo (out_channel_length fdo) else ();
+       st.histfile := Some fdo;
+    return ()
+  and close_histfile () =
+    match st.histfile with
+    [ Some fdo -> close_out fdo
+     | None -> () ]
+  in
+  (edit_line, open_histfile, close_histfile)
 ;
 
 value (set_prompt, get_prompt, input_char) =
   let prompt = ref ""
   and buff = ref ""
   and ind = ref 1 in
-  (fun x -> prompt.val := x, fun () -> prompt.val,
-   fun ic ->
-     if ic != Pervasives.stdin then input_char ic
-     else
-       do if ind.val > String.length buff.val then
-            do prerr_string prompt.val;
-               flush Pervasives.stderr;
-               buff.val := edit_line ();
-               ind.val := 0;
-            return ()
-          else ();
-       return
-       let c =
-         if ind.val == String.length buff.val then '\n' else buff.val.[ind.val]
-       in
-       do ind.val := ind.val + 1; return c)
+  let set_prompt x = prompt.val := x
+  and get_prompt () = prompt.val
+  and input_char ic =
+    if ic != Pervasives.stdin then input_char ic
+    else
+      do if ind.val > String.length buff.val then
+           do prerr_string prompt.val;
+              flush Pervasives.stderr;
+              try
+                do set_edit ();
+                   buff.val := edit_line ();
+                   unset_edit ();
+                return ()
+              with e -> do unset_edit (); return raise e;
+              ind.val := 0;
+           return ()
+         else ();
+      return
+      let c =
+        if ind.val == String.length buff.val then '\n' else buff.val.[ind.val]
+      in
+      do ind.val := ind.val + 1; return c
+  in
+  (set_prompt, get_prompt, input_char)
 ;

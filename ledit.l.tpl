@@ -81,6 +81,7 @@ The editing commands are:
       ^l  : refresh line
       ^g  : abort prefix
       ^c  : interrupt
+      ^z  : suspend
       ^\\  : quit
       return : send line
       ^x     : send line and show next history line
@@ -96,7 +97,7 @@ sequences:
       right arrow : forward char
       left arrow  : backward char
 
-.fi
+.SH REVERSE SEARCH
 The reverse search in incremental, i.e. \fIledit\fP backward searchs in the
 history a line holding the characters typed. If you type "a", its search the
 first line before the current line holding an "a" and displays it. If you then
@@ -119,8 +120,8 @@ Summary of reverse search commands:
 .fi
 
 .SH KNOWN BUGS
-It is not possible to suspend \fIledit\fP (using the suspend command,
-usually ctrl-z).
+The suspend command stops \fIledit\fP but not the called program. Do not
+do this if the called program is not waiting on standard input.
 
 .SH AUTHOR
 Daniel de Rauglaudre, at INRIA, france.

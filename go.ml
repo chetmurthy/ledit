@@ -48,32 +48,8 @@ let rec arg_loop i =
   else ()
 in
 arg_loop 1;
-set_echo False;
-
-value rec read_loop () =
-  do try
-       match input_char stdin with
-       [ '\n' -> print_newline ()
-       | x -> print_char x ]
-     with
-     [ Break -> () ];
-  return read_loop ()
-;
 
 open Unix;
-
-value saved_tcio = tcgetattr stdin;
-
-value set_edit () =
-  let tcio = tcgetattr stdin in
-  do tcio.c_echo := False;
-     tcio.c_icanon := False;
-     tcio.c_vmin := 1;
-     tcio.c_isig := False;
-     tcio.c_ixon := False;
-     tcsetattr stdin TCSANOW tcio;
-  return ()
-and unset_edit () = tcsetattr stdin TCSANOW saved_tcio;
 
 value string_of_signal =
   fun
@@ -84,6 +60,16 @@ value string_of_signal =
   | x -> "Signal " ^ string_of_int x ]
 ;
 
+value rec read_loop () =
+  do try
+       match input_char Pervasives.stdin with
+       [ '\n' -> print_newline ()
+       | x -> print_char x ]
+     with
+     [ Break -> () ];
+  return read_loop ()
+;
+
 value go () =
   let (id, od) = pipe () in
   let pid = fork () in
@@ -92,18 +78,16 @@ value go () =
     do dup2 od stdout;
        close id;
        close od;
-       set_edit ();
        set_son pid;
        signal sigchld
          (Signal_handle
             (fun _ ->
-               do match snd (waitpid [WNOHANG] pid) with
-                  [ WSIGNALED sign ->
-                      do prerr_endline (string_of_signal sign);
-                         flush Pervasives.stderr;
-                      return ()
-                  | _ -> () ];
-               return raise End_of_file));
+               match snd (waitpid [WNOHANG] pid) with
+               [ WSIGNALED sign ->
+                   do prerr_endline (string_of_signal sign);
+                      flush Pervasives.stderr;
+                   return raise End_of_file
+               | _ -> raise End_of_file ]));
     return
     try
       do if histfile.val <> "" then open_histfile trunc.val histfile.val
@@ -111,10 +95,9 @@ value go () =
          catch_break True;
          read_loop ();
          if histfile.val <> "" then close_histfile () else ();
-         unset_edit ();
       return ()
     with x ->
-      do unset_edit (); close stdout; return
+      do close stdout; return
       match x with
       [ End_of_file -> ()
       | _ ->
