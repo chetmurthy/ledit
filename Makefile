@@ -4,11 +4,11 @@ BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib
 MANDIR=/usr/man/manl
 COMP=ocamlc
-PP=camlp4 pa_r.cmo pr_dump.cmo
+PP=-pp camlp4r
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 
-all: $(TARGET) ledit.l
+all: pa_local.cmo $(TARGET) ledit.l
 
 $(TARGET): $(ZOFILES)
 	$(COMP) -custom unix.cma -cclib -lunix $(ZOFILES) -o $(TARGET)
@@ -17,8 +17,14 @@ ledit.l: ledit.l.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
 	sed s/LEDIT_VERSION/$$VERSION/ ledit.l.tpl > ledit.l
 
+ledit.cmo: ledit.ml pa_local.cmo
+	$(COMP) -pp "camlp4r ./pa_local.cmo" -c $<
+
+pa_local.cmo: pa_local.ml
+	$(COMP) -pp "camlp4r pa_extend.cmo q_MLast.cmo" -I `camlp4 -where` -c pa_local.ml
+
 clean:
-	/bin/rm -f *.cmo *.cmi *.cmx *.bak $(TARGET) ledit.l
+	/bin/rm -f *.cm[oix] *.pp[oi] *.bak $(TARGET) ledit.l
 
 install:
 	mkdirhier $(BINDIR) $(MANDIR)
@@ -26,22 +32,13 @@ install:
 	-cp ledit.l $(MANDIR)/ledit.l
 
 depend:
-	/bin/rm -f Makefile.bak
-	mv Makefile Makefile.bak
-	(sed -n -e '1,/^### DO NOT DELETE THIS LINE/p' Makefile.bak; \
-         ocamldep *.mli *.ml) > Makefile
+	ocamldep *.mli *.ml > .depend
+
+include .depend
 
 .ml.cmo:
-	$(COMP) -pp "$(PP)" -c $<
+	$(COMP) $(PP) -c $<
 .mli.cmi:
-	$(COMP) -pp "$(PP)" -c $<
+	$(COMP) $(PP) -c $<
 
 .SUFFIXES: .ml .cmo .mli .cmi
-
-### DO NOT DELETE THIS LINE
-cursor.cmo: cursor.cmi 
-cursor.cmx: cursor.cmi 
-go.cmo: ledit.cmi 
-go.cmx: ledit.cmx 
-ledit.cmo: cursor.cmi ledit.cmi 
-ledit.cmx: cursor.cmx ledit.cmi 

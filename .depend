@@ -1,0 +1,6 @@
+cursor.cmo: cursor.cmi 
+cursor.cmx: cursor.cmi 
+go.cmo: ledit.cmi 
+go.cmx: ledit.cmx 
+ledit.cmo: cursor.cmi ledit.cmi 
+ledit.cmx: cursor.cmx ledit.cmi 

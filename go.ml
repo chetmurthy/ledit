@@ -8,12 +8,12 @@ value version = "1.3";
 value usage () =
   do prerr_string "Usage: ";
      prerr_string argv.(0);
-     prerr_endline " [options] [-c comm [args]]";
+     prerr_endline " [options] [comm [args]]";
      prerr_endline " -h file : history file";
      prerr_endline " -x  : don't remove old contents of history";
      prerr_endline " -l len : line max length";
      prerr_endline " -v : prints ledit version and exit";
-     prerr_endline "If -c present, exec comm [args] as child process";
+     prerr_endline "Exec comm [args] as child process";
   return exit 1
 ;
 
@@ -34,17 +34,16 @@ let rec arg_loop i =
            do try set_max_len (int_of_string x) with _ -> usage (); return
            i + 2
        | "-x" -> do trunc.val := False; return i + 1
-       | "-c" ->
-           let i = succ i in
+       | "-v" ->
+           do Printf.printf "Ledit version %s\n" version; flush stdout; return
+           exit 0
+       | _ ->
+           let i = if argv.(i) = "-c" then i + 1 else i in
            if i < Array.length argv then
              do comm.val := argv.(i);
                 args.val := Array.sub argv i (Array.length argv - i);
              return Array.length argv
-           else Array.length argv
-       | "-v" ->
-           do Printf.printf "Ledit version %s\n" version; flush stdout; return
-           exit 0
-       | _ -> if i == 1 && argv.(1) = argv.(0) then i + 1 else usage () ])
+           else Array.length argv ])
   else ()
 in
 arg_loop 1;

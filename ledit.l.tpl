@@ -7,7 +7,7 @@ ledit \- line editor, version LEDIT_VERSION
 [-h \fIfile\fP]
 [-x]
 [-l \fIlength\fP]
-[-c \fIcommand options\fP]
+[\fIcommand options\fP]
 
 .SH DESCRIPTION
 The command \fIledit\fP allows to edit lines one by one when running an
@@ -35,7 +35,7 @@ Tells that \fIlength\fP is the maximum line length displayed. If the
 line edited is longer than this length, the line scrolls horizontally,
 while editing. The default value is 70.
 .TP
-.B -c \fIcommand options\fP
+\fIcommand options\fP
 Runs the command \fIcommand\fP and its possible options. This
 must be the last option of ledit. The default value is "cat".
 
