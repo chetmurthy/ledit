@@ -1,7 +1,7 @@
 # $Id$
 
 Name: ledit
-Version: 1.10
+Version: 1.11
 Release: 1
 Packager: Daniel de Rauglaudre <daniel.de_rauglaudre@inria.fr>
 Summary: Line editor

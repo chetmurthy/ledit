@@ -14,7 +14,7 @@
 open Ledit;
 open Sys;
 
-value version = "1.11-exp";
+value version = "1.11";
 
 value usage () =
   do {
