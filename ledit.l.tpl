@@ -1,6 +1,6 @@
-.TH LEDIT 1 "Thu May 2, 96" "INRIA"
+.TH LEDIT 1 "Thu Apr 17, 97" "INRIA"
 .SH NAME
-ledit \- line editor, version 1.1
+ledit \- line editor, version LEDIT_VERSION
 
 .SH SYNOPSIS
 .B ledit
@@ -26,6 +26,9 @@ only in memory (so, they are lost at the end of the program).
 .B -x
 Extend the history file (given in option "-h") if it already exists. The
 default is to truncate the history file.
+.TP
+.B -v
+Print ledit version and exit.
 .TP
 .B -l \fIlength\fP
 Tells that \fIlength\fP is the maximum line length displayed. If the
@@ -81,6 +84,16 @@ The editing commands are:
       return : send line
       ^x     : send line and show next history line
       other  : insert char
+.fi
+
+The arrow keys can be used, providing your keyword returns standard key
+sequences:
+.nf
+
+      up arrow    : previous line in history
+      down arrow  : next line in history
+      right arrow : forward char
+      left arrow  : backward char
 
 .fi
 The reverse search in incremental, i.e. \fIledit\fP backward searchs in the

@@ -34,9 +34,13 @@ type command =
   | Refresh_line
   | Reverse_search_history
   | Self_insert
+  | Start_csi_sequence
+  | Start_escape_sequence
   | Unix_line_discard
   | Yank ]
 ;
+
+type istate = [ Normal | Quote | Escape | CSI ];
 
 value (command_of_char, set_char_command) =
   let command_vect = Array.create 256 Self_insert in
@@ -44,8 +48,19 @@ value (command_of_char, set_char_command) =
    fun c comm -> command_vect.(Char.code c) := comm)
 ;
 
-do for i = 32 to 126 do set_char_command (Char.chr i) Self_insert; done;
-   set_char_command '\001' (* ^a *)  Beginning_of_line;
+value (escape_command_of_char, set_escape_command) =
+  let command_vect = Array.create 256 Abort in
+  (fun c -> command_vect.(Char.code c),
+   fun c comm -> command_vect.(Char.code c) := comm)
+;
+
+value (csi_command_of_char, set_csi_command) =
+  let command_vect = Array.create 256 Abort in
+  (fun c -> command_vect.(Char.code c),
+   fun c comm -> command_vect.(Char.code c) := comm)
+;
+
+do set_char_command '\001' (* ^a *)  Beginning_of_line;
    set_char_command '\005' (* ^e *)  End_of_line;
    set_char_command '\006' (* ^f *)  Forward_char;
    set_char_command '\002' (* ^b *)  Backward_char;
@@ -70,6 +85,17 @@ do for i = 32 to 126 do set_char_command (Char.chr i) Self_insert; done;
    set_char_command '\028' (* ^\ *)  Quit;
    set_char_command '\n'             Accept_line;
    set_char_command '\024' (* ^x *)  Operate_and_get_next;
+   set_char_command '\027' (* ^x *)  Start_escape_sequence;
+   set_escape_command 'f' Forward_word;
+   set_escape_command 'b' Backward_word;
+   set_escape_command '<' Beginning_of_history;
+   set_escape_command '>' End_of_history;
+   set_escape_command 'd' Delete_word;
+   set_escape_command '[' Start_csi_sequence;
+   set_csi_command 'A' Previous_history;
+   set_csi_command 'B' Next_history;
+   set_csi_command 'C' Forward_char;
+   set_csi_command 'D' Backward_char;
 return ()
 ;
 
@@ -79,7 +105,8 @@ type state =
   { od : line;
     nd : line;
     line : line;
-    quote : mutable bool;
+    iso_8859_1 : bool;
+    istate : mutable istate;
     shift : mutable int;
     cut : mutable string;
     last_comm : mutable command;
@@ -112,7 +139,7 @@ value line_to_nd st =
                 (Char.chr (127 land (ic + 64)));
               st.nd.len := st.nd.len + 2;
            return ()
-         else if ic >= 128 then
+         else if ic >= 128 && not st.iso_8859_1 then
            do line_set_nth_char st.nd st.nd.len '\\';
               line_set_nth_char st.nd (st.nd.len + 1)
                 (Char.chr (ic / 100 + Char.code '0'));
@@ -356,11 +383,10 @@ value reverse_search_history st =
     return
     let c = read_char () in
     match command_of_char c with
-    [ Self_insert ->
-        if c == '\027' then fstr
-        else
-          let str = str ^ String.make 1 c in
-          incr_search (find_line (cnt, fstr) str) str
+    [ Start_escape_sequence -> fstr
+    | Self_insert ->
+        let str = str ^ String.make 1 c in
+        incr_search (find_line (cnt, fstr) str) str
     | Backward_delete_char ->
         if String.length str == 0 then incr_search (cnt, fstr) str
         else
@@ -394,11 +420,8 @@ value rec end_of_history st =
   try set_line st (Cursor.peek st.history) with [ Cursor.Failure -> bell () ]
 ;
 
-value rec update_line st c =
-  match
-    if st.quote then do st.quote := False; return Self_insert
-    else command_of_char c
-  with
+value rec update_line st comm c =
+  match comm with
   [ Beginning_of_line ->
       if st.line.cur > 0 then do st.line.cur := 0; update_output st; return ()
       else ()
@@ -442,7 +465,9 @@ value rec update_line st c =
       if st.line.cur < st.line.len then
         do delete_word st; update_output st; return ()
       else ()
-  | Quoted_insert -> st.quote := True
+  | Quoted_insert -> st.istate := Quote
+  | Start_escape_sequence -> st.istate := Escape
+  | Start_csi_sequence -> st.istate := CSI
   | Self_insert ->
       do insert_char st c;
          st.line.cur := st.line.cur + 1;
@@ -502,20 +527,25 @@ open Unix;
 value (edit_line, open_histfile, close_histfile, set_echo) =
   let st =
     {od = {buf = ""; cur = 0; len = 0}; nd = {buf = ""; cur = 0; len = 0};
-     line = {buf = ""; cur = 0; len = 0}; quote = False; shift = 0; cut = "";
-     last_comm = Accept_line; histfile = None; history = Cursor.create ();
-     echo = True}
+     line = {buf = ""; cur = 0; len = 0};
+     iso_8859_1 =
+       try Sys.getenv "LC_CTYPE" = "iso_8859_1" with
+       [ Not_found -> False ];
+     istate = Normal; shift = 0; cut = ""; last_comm = Accept_line;
+     histfile = None; history = Cursor.create (); echo = True}
   in
   (fun () ->
      let rec edit_loop () =
-       let c =
-         match read_char () with
-         [ '\027' -> Char.chr (Char.code (read_char ()) + 128)
-         | c -> c ]
+       let c = read_char () in
+       let comm =
+         match st.istate with
+         [ Quote -> Self_insert
+         | Normal -> command_of_char c
+         | Escape -> escape_command_of_char c
+         | CSI -> csi_command_of_char c ]
        in
-       do st.last_comm := if st.quote then Self_insert else command_of_char c;
-       return
-       match st.last_comm with
+       do st.istate := Normal; st.last_comm := comm; return
+       match comm with
        [ Accept_line | Operate_and_get_next ->
            let v_max_len = max_len.val in
            do max_len.val := 10000;
@@ -526,7 +556,7 @@ value (edit_line, open_histfile, close_histfile, set_echo) =
            let line = String.sub st.line.buf 0 st.line.len in
            do save_history st line; return line
        | Refresh_line -> do put_newline st; return ""
-       | _ -> do update_line st c; return edit_loop () ]
+       | _ -> do update_line st comm c; return edit_loop () ]
      in
      do st.od.len := 0;
         st.od.cur := 0;

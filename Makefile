@@ -8,13 +8,17 @@ PP=camlp4 pa_r.cmo pr_dump.cmo
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 
-all: $(TARGET)
+all: $(TARGET) ledit.l
 
 $(TARGET): $(ZOFILES)
 	$(COMP) -custom unix.cma -cclib -lunix $(ZOFILES) -o $(TARGET)
 
+ledit.l: ledit.l.tpl go.ml
+	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
+	sed s/LEDIT_VERSION/$$VERSION/ ledit.l.tpl > ledit.l
+
 clean:
-	/bin/rm -f *.cmo *.cmi *.cmx *.bak $(TARGET)
+	/bin/rm -f *.cmo *.cmi *.cmx *.bak $(TARGET) ledit.l
 
 install:
 	-cp ledit.out $(BINDIR)/ledit

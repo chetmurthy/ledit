@@ -3,6 +3,8 @@
 open Ledit;
 open Sys;
 
+value version = "1.2";
+
 value usage () =
   do prerr_string "Usage: ";
      prerr_string argv.(0);
@@ -10,6 +12,7 @@ value usage () =
      prerr_endline " -h file : history file";
      prerr_endline " -x  : don't remove old contents of history";
      prerr_endline " -l len : line max length";
+     prerr_endline " -v : prints ledit version and exit";
      prerr_endline "If -c present, exec comm [args] as child process";
   return exit 1
 ;
@@ -38,6 +41,9 @@ let rec arg_loop i =
                 args.val := Array.sub argv i (Array.length argv - i);
              return Array.length argv
            else Array.length argv
+       | "-v" ->
+           do Printf.printf "Ledit version %s\n" version; flush stdout; return
+           exit 0
        | _ -> if i == 1 && argv.(1) = argv.(0) then i + 1 else usage () ])
   else ()
 in
@@ -64,6 +70,7 @@ value set_edit () =
      tcio.c_icanon := False;
      tcio.c_vmin := 1;
      tcio.c_isig := False;
+     tcio.c_ixon := False;
      tcsetattr stdin TCSANOW tcio;
   return ()
 and unset_edit () = tcsetattr stdin TCSANOW saved_tcio;
