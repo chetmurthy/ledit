@@ -30,7 +30,9 @@ type command =
   | Backward_word
   | Beginning_of_history
   | Beginning_of_line
+  | Capitalize_word
   | Delete_char
+  | Downcase_word
   | End_of_history
   | End_of_line
   | Expand_abbrev
@@ -50,7 +52,9 @@ type command =
   | Start_csi_sequence
   | Start_escape_sequence
   | Suspend
+  | Transpose_chars
   | Unix_line_discard
+  | Upcase_word
   | Yank ]
 ;
 
@@ -88,6 +92,10 @@ do set_char_command '\001' (* ^a *)    Beginning_of_line;
    set_char_command '\004' (* ^d *)    Delete_char;
    set_char_command '\008' (* ^h *)    Backward_delete_char;
    set_char_command '\127' (* del *)   Backward_delete_char;
+   set_char_command '\020' (* ^t *)    Transpose_chars;
+   set_char_command '\227' (* M-c *)   Capitalize_word;
+   set_char_command '\245' (* M-u *)   Upcase_word;
+   set_char_command '\236' (* M-l *)   Downcase_word;
    set_char_command '\228' (* M-d *)   Kill_word;
    set_char_command '\136' (* M-^h *)  Backward_kill_word;
    set_char_command '\255' (* M-del *) Backward_kill_word;
@@ -106,6 +114,9 @@ do set_char_command '\001' (* ^a *)    Beginning_of_line;
    set_char_command '\175' (* M-/ *)   Expand_abbrev;
    set_escape_command 'f'              Forward_word;
    set_escape_command 'b'              Backward_word;
+   set_escape_command 'c'              Capitalize_word;
+   set_escape_command 'u'              Upcase_word;
+   set_escape_command 'l'              Downcase_word;
    set_escape_command '<'              Beginning_of_history;
    set_escape_command '>'              End_of_history;
    set_escape_command 'd'              Kill_word;
@@ -391,6 +402,36 @@ value backward_kill_word st =
   return k
 ;
 
+value capitalize_word st =
+  let i = st.line.cur in
+  let i0 = forward_move st.line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
+  forward_move st.line
+    (fun mv i ->
+       let f = if i == i0 then Char.uppercase else Char.lowercase in
+       do st.line.buf.[i] := f st.line.buf.[i]; return mv (i + 1))
+    (fun _ i -> i) i0
+;
+
+value upcase_word st =
+  let i = st.line.cur in
+  let i = forward_move st.line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
+  forward_move st.line
+    (fun mv i ->
+       let f = Char.uppercase in
+       do st.line.buf.[i] := f st.line.buf.[i]; return mv (i + 1))
+    (fun _ i -> i) i
+;
+
+value downcase_word st =
+  let i = st.line.cur in
+  let i = forward_move st.line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
+  forward_move st.line
+    (fun mv i ->
+       let f = Char.lowercase in
+       do st.line.buf.[i] := f st.line.buf.[i]; return mv (i + 1))
+    (fun _ i -> i) i
+;
+
 value set_line st str =
   do st.line.len := 0;
      st.line.cur := 0;
@@ -576,6 +617,18 @@ value rec update_line st comm c =
       if st.line.cur > 0 then
         do st.line.cur := backward_word st.line; update_output st; return ()
       else ()
+  | Capitalize_word ->
+      if st.line.cur < st.line.len then
+        do st.line.cur := capitalize_word st; update_output st; return ()
+      else ()
+  | Upcase_word ->
+      if st.line.cur < st.line.len then
+        do st.line.cur := upcase_word st; update_output st; return ()
+      else ()
+  | Downcase_word ->
+      if st.line.cur < st.line.len then
+        do st.line.cur := downcase_word st; update_output st; return ()
+      else ()
   | Previous_history -> do previous_history st; update_output st; return ()
   | Next_history -> do next_history st; update_output st; return ()
   | Beginning_of_history ->
@@ -591,6 +644,14 @@ value rec update_line st comm c =
   | Backward_delete_char ->
       if st.line.cur > 0 then
         do st.line.cur := st.line.cur - 1; delete_char st; update_output st;
+        return ()
+      else ()
+  | Transpose_chars ->
+      if st.line.cur > 1 then
+        let c = st.line.buf.[st.line.cur-1] in
+        do st.line.buf.[st.line.cur-1] := st.line.buf.[st.line.cur-2];
+           st.line.buf.[st.line.cur-2] := c;
+           update_output st;
         return ()
       else ()
   | Kill_word ->
@@ -677,7 +738,7 @@ local st =
   {od = {buf = ""; cur = 0; len = 0}; nd = {buf = ""; cur = 0; len = 0};
    line = {buf = ""; cur = 0; len = 0};
    iso_8859_1 =
-     try Sys.getenv "LC_CTYPE" = "iso_8859_1" with
+     try Sys.getenv "LC_CTYPE" <> "" with
      [ Not_found -> False ];
    istate = Normal; shift = 0; cut = ""; last_comm = Accept_line;
    histfile = None; history = Cursor.create (); abbrev = None}

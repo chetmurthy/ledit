@@ -71,6 +71,10 @@ The editing commands are:
       ^r   : reverse search in history (see below)
       ^d   : delete char (or EOF if the line is empty)
       ^h   : (or del or backspace) backward delete char
+      ^t   : transpose chars
+      M-c  : capitalize word
+      M-u  : upcase word
+      M-l  : downcase word
       M-d  : kill word
       M-^h : (or M-del or M-backspace) backward kill word
       ^q   : insert next char

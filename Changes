@@ -1,3 +1,10 @@
+Ledit Version 1.7
+-----------------
+- Added Transpose_chars (^t)
+        Capitalize_word (M-c or esc c)
+        Upcase_word (M-u or esc u)
+        Downcase_word (M-l or esc l)
+
 Ledit Version 1.6
 -----------------
 - Added hack to avoid

@@ -7,6 +7,7 @@ COMP=ocamlc
 PP=camlp4r
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
+MKDIR=mkdir -p
 
 all: pa_local.cmo $(TARGET) ledit.l
 
