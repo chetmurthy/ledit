@@ -6,7 +6,7 @@ Release: 1
 Packager: Daniel de Rauglaudre <daniel.de_rauglaudre@inria.fr>
 Summary: Line editor
 Source0: ledit-%{version}.tar.gz
-Copyright: Free
+Copyright: BSD
 Group: Development/Tools
 URL: http://cristal.inria.fr/~ddr/
 BuildRoot: /var/tmp/ledit
