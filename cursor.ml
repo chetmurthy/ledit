@@ -80,7 +80,10 @@ value peek_last c =
     | [x] -> x
     | [_ :: l] -> peek_rec l ]
   in
-  peek_rec c.after
+  match (c.before, c.current, c.after) with
+  [ (_, Some x, []) -> x
+  | ([x :: _], None, []) -> x
+  | (_, _, l) -> peek_rec l ]
 ;
 
 value rec goto_first c =
