@@ -93,15 +93,17 @@ value go () =
        close id;
        close od;
        set_son pid;
-       signal sigchld
-         (Signal_handle
-            (fun _ ->
-               match snd (waitpid [WNOHANG] pid) with
-               [ WSIGNALED sign ->
-                   do prerr_endline (string_of_signal sign);
-                      flush Pervasives.stderr;
-                   return raise End_of_file
-               | _ -> raise End_of_file ]));
+       let _ : signal_behavior =
+         signal sigchld
+           (Signal_handle
+              (fun _ ->
+                 match snd (waitpid [WNOHANG] pid) with
+                 [ WSIGNALED sign ->
+                     do prerr_endline (string_of_signal sign);
+                        flush Pervasives.stderr;
+                     return raise End_of_file
+                 | _ -> raise End_of_file ]))
+       in ();
     return
     try
       do if histfile.val <> "" then open_histfile trunc.val histfile.val
@@ -111,7 +113,7 @@ value go () =
          if histfile.val <> "" then close_histfile () else ();
       return ()
     with x ->
-      do signal sigchld Signal_ignore;
+      do let _ : signal_behavior = signal sigchld Signal_ignore in ();
          try do close stdout; return let _ = wait () in () with
          [ Unix_error _ _ _ -> () ];
          stupid_hack_to_avoid_sys_error_at_exit ();
