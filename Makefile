@@ -24,7 +24,7 @@ pa_local.cmo: pa_local.ml
 	$(COMP) -pp "$(PP) pa_extend.cmo q_MLast.cmo" -I `camlp4 -where` -c pa_local.ml
 
 clean:
-	/bin/rm -f *.cm[oix] *.pp[oi] *.bak $(TARGET) ledit.l
+	/bin/rm -f *.cm[oix] *.pp[oi] *.o *.bak $(TARGET) ledit.l
 
 install:
 	mkdirhier $(BINDIR) $(MANDIR)
