@@ -1,2 +1,4 @@
+*.cm[oi]
+*.pp[oi]
 ledit.out
 ledit.l
