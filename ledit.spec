@@ -12,8 +12,7 @@ URL: http://cristal.inria.fr/~ddr/
 BuildRoot: /var/tmp/ledit
 
 %description
-The command ledit allows to edit lines one by one when running an interactive
-command.
+A line editor for interactive programs.
 
 %prep
 %setup

@@ -4,6 +4,7 @@ BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib
 MANDIR=/usr/man/manl
 COMP=ocamlc
+COMPOPT=ocamlopt
 PP=camlp4r
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
@@ -12,7 +13,10 @@ MKDIR=mkdir -p
 all: pa_local.cmo $(TARGET) ledit.l
 
 $(TARGET): $(ZOFILES)
-	$(COMP) -custom unix.cma -cclib -lunix $(ZOFILES) -o $(TARGET)
+	$(COMP) -custom unix.cma $(ZOFILES) -o $(TARGET)
+
+$(TARGET:.out=.opt): $(ZOFILES:.cmo=.cmx)
+	$(COMPOPT) unix.cmxa $(ZOFILES:.cmo=.cmx) -o $(TARGET:.out=.opt)
 
 ledit.l: ledit.l.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
@@ -45,9 +49,13 @@ include .depend
 	$(PP) ./pa_local.cmo -warn_seq $< -o $*.ppo
 	$(COMP) -I `camlp4 -where` -c -impl $*.ppo
 	/bin/rm -f $*.ppo
+.ml.cmx:
+	$(PP) ./pa_local.cmo -warn_seq $< -o $*.ppo
+	$(COMPOPT) -I `camlp4 -where` -c -impl $*.ppo
+	/bin/rm -f $*.ppo
 .mli.cmi:
 	$(PP) $< -o $*.ppi
 	$(COMP) -c -intf $*.ppi
 	/bin/rm -f $*.ppi
 
-.SUFFIXES: .ml .cmo .mli .cmi
+.SUFFIXES: .ml .cmo .cmx .mli .cmi
