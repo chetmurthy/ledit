@@ -124,14 +124,14 @@ Summary of reverse search commands:
 .fi
 
 .SH KNOWN BUGS
-The suspend command kills \fIledit\fP and its command if ledit has been
-launched in a shell script... Use "exec ledit comm" instead of "ledit comm".
+If \fIledit\fP has been launched in a shell script, the suspend command kills
+it and its command... Use "exec ledit comm" instead of "ledit comm".
 .br
 The suspend command stops \fIledit\fP but not the called program. Do not
 do this if the called program is not waiting on standard input.
 .br
 In some systems (e.g. alpha), pasting of two many characters works bad and
-may block the terminal. No solution.
+may block the terminal. Probably a kernel problem. No solution.
 
 .SH AUTHOR
 Daniel de Rauglaudre, at INRIA, france.
