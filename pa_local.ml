@@ -30,8 +30,8 @@ EXTEND
           let el = List.map expr_of_patt pl in
           <:str_item<
            value ($list:pl$) =
-             let $rec:rf$ $list:lb$ in
-             let $rec:rf1$ $list:lb1$ in
+             let $opt:rf$ $list:lb$ in
+             let $opt:rf1$ $list:lb1$ in
              ($list:el$) >> ] ]
   ;
 END;
