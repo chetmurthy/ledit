@@ -1,3 +1,9 @@
+Ledit Version 1.6
+-----------------
+- Added hack to avoid
+    Fatal error: uncaught exception Sys_error("Bad file number")
+  which sometimes happens.
+
 Ledit Version 1.5
 -----------------
 - Fixed bug shell prompt sometimes displayed to early when quitting ledit.

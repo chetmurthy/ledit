@@ -14,7 +14,7 @@
 open Ledit;
 open Sys;
 
-value version = "1.5";
+value version = "1.6";
 
 value usage () =
   do prerr_string "Usage: ";
@@ -80,6 +80,10 @@ value rec read_loop () =
   return read_loop ()
 ;
 
+value stupid_trick_to_avoid_sys_error_at_exit () =
+  dup2 (openfile "/dev/null" [O_WRONLY] 0) stdout
+;
+
 value go () =
   let (id, od) = pipe () in
   let pid = fork () in
@@ -110,6 +114,7 @@ value go () =
       do signal sigchld Signal_ignore;
          try do close stdout; return let _ = wait () in () with
          [ Unix_error _ _ _ -> () ];
+         stupid_trick_to_avoid_sys_error_at_exit ();
       return
       match x with
       [ End_of_file -> ()
@@ -127,7 +132,8 @@ value handle f a =
            (Unix.error_message code) fname param;
          flush Pervasives.stderr;
       return exit 2
-  | e -> Printexc.catch raise e ]
+  | e ->
+      Printexc.catch raise e ]
 ;
 
 handle go ();
