@@ -27,7 +27,7 @@ clean:
 	/bin/rm -f *.cm[oix] *.pp[oi] *.o *.bak $(TARGET) ledit.l
 
 install:
-	$(MKDIR) $(BINDIR) $(MANDIR)
+	-$(MKDIR) $(BINDIR) $(MANDIR)
 	-cp ledit.out $(BINDIR)/ledit
 	-cp ledit.l $(MANDIR)/ledit.l
 
