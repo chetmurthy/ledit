@@ -3,7 +3,7 @@
 open Ledit;
 open Sys;
 
-value version = "1.4";
+value version = "1.5";
 
 value usage () =
   do prerr_string "Usage: ";
@@ -96,7 +96,10 @@ value go () =
          if histfile.val <> "" then close_histfile () else ();
       return ()
     with x ->
-      do close stdout; return
+      do signal sigchld Signal_ignore;
+         try do close stdout; return let _ = wait () in () with
+         [ Unix_error _ -> () ];
+      return
       match x with
       [ End_of_file -> ()
       | _ ->

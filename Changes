@@ -1,3 +1,7 @@
+Ledit Version 1.5
+-----------------
+- Fixed bug shell prompt sometimes displayed to early when quitting ledit.
+
 Ledit Version 1.4
 -----------------
 - Added M-backspace or M-delete for backward-kill-word
