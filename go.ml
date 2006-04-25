@@ -14,7 +14,7 @@
 open Ledit;
 open Sys;
 
-value version = "1.11";
+value version = "1.12";
 
 value usage () =
   do {
@@ -115,7 +115,6 @@ value go () =
         else ();
         catch_break True;
         read_loop ();
-        if histfile.val <> "" then close_histfile () else ()
       }
     with x ->
       let _ : signal_behavior = signal sigchld Signal_ignore in
@@ -134,7 +133,6 @@ value go () =
     Unix.close id;
     Unix.close od;
     Unix.execvp comm.val args.val;
-    failwith "execv"
   }
 ;
 

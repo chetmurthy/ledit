@@ -23,7 +23,7 @@ ledit.l: ledit.l.tpl go.ml
 	sed s/LEDIT_VERSION/$$VERSION/ ledit.l.tpl > ledit.l
 
 pa_local.cmo: pa_local.ml
-	$(PP) pa_extend.cmo q_MLast.cmo pa_local.ml -o pa_local.ppo
+	$(PP) pa_extend.cmo q_MLast.cmo pa_local.ml -loc loc -o pa_local.ppo
 	$(COMP) -I `camlp4 -where` -c -impl pa_local.ppo
 	/bin/rm -f pa_local.ppo
 
