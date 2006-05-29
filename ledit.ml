@@ -4,8 +4,8 @@
 (*                                                                     *)
 (*       Daniel de Rauglaudre, projet Cristal, INRIA Rocquencourt      *)
 (*                                                                     *)
-(*  Copyright 2001 Institut National de Recherche en Informatique et   *)
-(*  Automatique.  Distributed only by permission.                      *)
+(*  Copyright 2001-2006 Institut National de Recherche en Informatique *)
+(*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
 
