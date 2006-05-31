@@ -1,5 +1,5 @@
 (* $Id$ *)
-(* Copyright (c) 2001 INRIA *)
+(* Copyright (c) 2001-2006 INRIA *)
 
 #load "q_MLast.cmo";
 #load "pa_extfun.cmo";
@@ -7,7 +7,7 @@
 open Pcaml;
 open Spretty;
 
-value loc = (0, 0);
+value _loc = Token.dummy_loc;
 
 value expr e dg k = pr_expr.pr_fun "top" e dg k;
 value patt e dg k = pr_patt.pr_fun "top" e dg k;

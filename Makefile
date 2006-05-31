@@ -2,15 +2,16 @@
 
 BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib
-MANDIR=/usr/man/manl
+MANDIR=/usr/local/man/man1
 COMP=ocamlc
 COMPOPT=ocamlopt
-PP=camlp4r
+PP=camlp4r -I ext
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 MKDIR=mkdir -p
+EXT=ext/pa_def.cmo ext/pa_local.cmo
 
-all: pa_local.cmo $(TARGET) ledit.l
+all: $(EXT) $(TARGET) ledit.1
 
 $(TARGET): $(ZOFILES)
 	$(COMP) -custom unix.cma $(ZOFILES) -o $(TARGET)
@@ -18,44 +19,37 @@ $(TARGET): $(ZOFILES)
 $(TARGET:.out=.opt): $(ZOFILES:.cmo=.cmx)
 	$(COMPOPT) unix.cmxa $(ZOFILES:.cmo=.cmx) -o $(TARGET:.out=.opt)
 
-ledit.l: ledit.l.tpl go.ml
+ledit.1: ledit.1.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
-	sed s/LEDIT_VERSION/$$VERSION/ ledit.l.tpl > ledit.l
-
-pa_local.cmo: pa_local.ml
-	$(PP) pa_extend.cmo q_MLast.cmo pa_local.ml -loc loc -o pa_local.ppo
-	$(COMP) -I `camlp4 -where` -c -impl pa_local.ppo
-	/bin/rm -f pa_local.ppo
+	sed s/LEDIT_VERSION/$$VERSION/ ledit.1.tpl > ledit.1
 
 clean:
-	/bin/rm -f *.cm[oix] *.pp[oi] *.o *.bak $(TARGET) ledit.l
+	/bin/rm -f *.cm[iox] *.pp[oi] *.o ext/*.cm[io] *.bak $(TARGET) ledit.1
 
 install:
 	-$(MKDIR) $(BINDIR) $(MANDIR)
 	-cp ledit.out $(BINDIR)/ledit
-	-cp ledit.l $(MANDIR)/ledit.l
+	-cp ledit.1 $(MANDIR)/ledit.1
 
 depend:
 	> .depend.new
 	for i in $(ZOFILES:.cmo=.ml); do \
-	  $(PP) ./pa_local.cmo pr_depend.cmo $$i >> .depend.new; \
+	  $(PP) pr_depend.cmo $$i >> .depend.new; \
 	done
 	mv .depend .depend.old
 	mv .depend.new .depend
 
 include .depend
 
-.SUFFIXES: .ml .cmo .cmx .mli .cmi
-
-.ml.cmo:
-	$(PP) ./pa_local.cmo $< -o $*.ppo
-	$(COMP) -I `camlp4 -where` -c -impl $*.ppo
+%.cmo: %.ml
+	$(PP) $< -o $*.ppo
+	$(COMP) -I +camlp4 -c -impl $*.ppo
 	/bin/rm -f $*.ppo
-.ml.cmx:
-	$(PP) ./pa_local.cmo $< -o $*.ppo
-	$(COMPOPT) -I `camlp4 -where` -c -impl $*.ppo
+%.cmx: %.ml
+	$(PP) $< -o $*.ppo
+	$(COMPOPT) -I +camlp4 -c -impl $*.ppo
 	/bin/rm -f $*.ppo
-.mli.cmi:
+%.cmi: %.mli
 	$(PP) $< -o $*.ppi
 	$(COMP) -c -intf $*.ppi
 	/bin/rm -f $*.ppi

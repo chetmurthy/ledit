@@ -11,13 +11,16 @@
 
 (* $Id$ *)
 
+#load "pa_extend.cmo";
+#load "q_MLast.cmo";
+
 open Pcaml;
 
 value expr_of_patt p =
-  let loc = MLast.loc_of_patt p in
+  let _loc = MLast.loc_of_patt p in
   match p with
   [ <:patt< $lid:x$ >> -> <:expr< $lid:x$ >>
-  | _ -> Stdpp.raise_with_loc loc (Stream.Error "identifier expected") ]
+  | _ -> Stdpp.raise_with_loc _loc (Stream.Error "identifier expected") ]
 ;
 
 EXTEND
