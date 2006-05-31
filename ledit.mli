@@ -2,10 +2,10 @@
 (*                                                                     *)
 (*                               Ledit                                 *)
 (*                                                                     *)
-(*       Daniel de Rauglaudre, projet Cristal, INRIA Rocquencourt      *)
+(*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 1997 Institut National de Recherche en Informatique et   *)
-(*  Automatique.  Distributed only by permission.                      *)
+(*  Copyright 1997-2006 Institut National de Recherche en Informatique *)
+(*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
 

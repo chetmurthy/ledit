@@ -2,10 +2,10 @@
 (*                                                                     *)
 (*                               Ledit                                 *)
 (*                                                                     *)
-(*       Daniel de Rauglaudre, projet Cristal, INRIA Rocquencourt      *)
+(*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001 Institut National de Recherche en Informatique et   *)
-(*  Automatique.  Distributed only by permission.                      *)
+(*  Copyright 2001-2006 Institut National de Recherche en Informatique *)
+(*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
 
@@ -13,7 +13,7 @@
 
 type t 'a =
   { before : mutable list 'a;
-    current : mutable (option 'a);
+    current : mutable option 'a;
     after : mutable list 'a }
 ;
 
@@ -24,42 +24,34 @@ value create () = {before = []; current = None; after = []};
 value before c =
   match c.before with
   [ [] -> raise Failure
-  | [x :: l] ->
-      do {
-        match c.current with
-        [ Some y -> c.after := [y :: c.after]
-        | _ -> () ];
-        c.current := Some x;
-        c.before := l;
-      } ]
+  | [x :: l] -> (
+      match c.current with
+      [ Some y -> c.after := [y :: c.after]
+      | _ -> () ];
+      c.current := Some x;
+      c.before := l
+    ) ]
 ;
 
 value after c =
   match c.current with
   [ None -> raise Failure
-  | Some y ->
-      do {
-        c.before := [y :: c.before];
-        match c.after with
-        [ [] -> c.current := None
-        | [x :: l] ->
-            do {
-              c.current := Some x;
-              c.after := l;
-            } ]
-      } ]
+  | Some y -> (
+      c.before := [y :: c.before];
+      match c.after with
+      [ [] -> c.current := None
+      | [x :: l] -> (c.current := Some x; c.after := l) ]
+    ) ]
 ;
 
 value is_last_line c = c.current = None;
 
-value insert c x =
-  do {
-    match c.current with
-    [ Some y -> c.before := [y :: c.before]
-    | None -> () ];
-    c.current := Some x;
-  }
-;
+value insert c x = (
+  match c.current with
+  [ Some y -> c.before := [y :: c.before]
+  | None -> () ];
+  c.current := Some x
+);
 
 value insert_last c x =
   match c.current with
@@ -87,13 +79,11 @@ value peek_last c =
 ;
 
 value rec goto_first c =
-  try while True do { before c } with
-  [ Failure -> () ]
+  try while True do before c; done with [ Failure -> () ]
 ;
 
 value rec goto_last c =
-  try while True do { after c } with
-  [ Failure -> () ]
+  try while True do after c; done with [ Failure -> () ]
 ;
 
 value get_all c =

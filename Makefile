@@ -3,21 +3,21 @@
 BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib
 MANDIR=/usr/local/man/man1
-COMP=ocamlc
-COMPOPT=ocamlopt
-PP=camlp4r -I ext
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+CAMLP4=camlp4 -I ext pa_s.cmo pr_dump.cmo
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 MKDIR=mkdir -p
-EXT=ext/pa_def.cmo ext/pa_local.cmo
+EXT=ext/pa_s.cmo ext/pa_def.cmo ext/pa_local.cmo
 
 all: $(EXT) $(TARGET) ledit.1
 
 $(TARGET): $(ZOFILES)
-	$(COMP) -custom unix.cma $(ZOFILES) -o $(TARGET)
+	$(OCAMLC) -custom unix.cma $(ZOFILES) -o $(TARGET)
 
 $(TARGET:.out=.opt): $(ZOFILES:.cmo=.cmx)
-	$(COMPOPT) unix.cmxa $(ZOFILES:.cmo=.cmx) -o $(TARGET:.out=.opt)
+	$(OCAMLOPT) unix.cmxa $(ZOFILES:.cmo=.cmx) -o $(TARGET:.out=.opt)
 
 ledit.1: ledit.1.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
@@ -34,22 +34,27 @@ install:
 depend:
 	> .depend.new
 	for i in $(ZOFILES:.cmo=.ml); do \
-	  $(PP) pr_depend.cmo $$i >> .depend.new; \
+	  $(CAMLP4) pr_depend.cmo $$i >> .depend.new; \
 	done
 	mv .depend .depend.old
 	mv .depend.new .depend
 
 include .depend
 
+ext/%.cmo: ext/%.ml
+	camlp4r -I ext $< -o ext/$*.ppo
+	$(OCAMLC) -I +camlp4 -c -impl ext/$*.ppo
+	rm -f ext/$*.ppo
+
 %.cmo: %.ml
-	$(PP) $< -o $*.ppo
-	$(COMP) -I +camlp4 -c -impl $*.ppo
+	$(CAMLP4) $< -o $*.ppo
+	$(OCAMLC) -I +camlp4 -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmx: %.ml
-	$(PP) $< -o $*.ppo
-	$(COMPOPT) -I +camlp4 -c -impl $*.ppo
+	$(CAMLP4) $< -o $*.ppo
+	$(OCAMLOPT) -I +camlp4 -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmi: %.mli
-	$(PP) $< -o $*.ppi
-	$(COMP) -c -intf $*.ppi
+	$(CAMLP4) $< -o $*.ppi
+	$(OCAMLC) -c -intf $*.ppi
 	/bin/rm -f $*.ppi
