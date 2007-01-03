@@ -2,6 +2,7 @@
 
 #load "pa_extend.cmo";
 #load "q_MLast.cmo";
+#load "pa_macro.cmo";
 
 open Pcaml;
 
@@ -21,7 +22,7 @@ value rec list_remove x =
   | [] -> [] ]
 ;
 
-value defined = ref [];
+value defined = ref (IFDEF CAMLP4S THEN [("CAMLP4S", None)] ELSE [] END);
 
 value is_defined i = List.mem_assoc i defined.val;
 
@@ -31,36 +32,39 @@ value _loc = loc;
 value subst mloc env =
   loop where rec loop =
     fun
-    [ MLast.ExLet _ rf pel e ->
+    [ <:expr< let $opt:rf$ $list:pel$ in $e$ >> ->
         let pel = List.map (fun (p, e) -> (p, loop e)) pel in
-        MLast.ExLet loc rf pel (loop e)
-    | MLast.ExIfe _ e1 e2 e3 -> MLast.ExIfe loc (loop e1) (loop e2) (loop e3)
-    | MLast.ExApp _ e1 e2 -> MLast.ExApp loc (loop e1) (loop e2)
-    | MLast.ExLid _ x | MLast.ExUid _ x as e ->
-        try MLast.ExAnt loc (List.assoc x env) with [ Not_found -> e ]
-    | MLast.ExTup _ x -> MLast.ExTup loc (List.map loop x)
-    | MLast.ExRec _ pel None ->
+        <:expr< let $opt:rf$ $list:pel$ in $loop e$ >>
+    | <:expr< if $e1$ then $e2$ else $e3$ >> ->
+        <:expr< if $loop e1$ then $loop e2$ else $loop e3$ >>
+    | <:expr< $e1$ $e2$ >> ->
+        <:expr< $loop e1$ $loop e2$ >>
+    | <:expr< $lid:x$ >> | <:expr< $uid:x$ >> as e ->
+        try <:expr< $anti:List.assoc x env$ >> with [ Not_found -> e ]
+    | <:expr< ( $list:x$ ) >> ->
+        <:expr< ( $list:List.map loop x$ ) >>
+    | <:expr< { $list:pel$ } >> ->
         let pel = List.map (fun (p, e) -> (p, loop e)) pel in
-        MLast.ExRec loc pel None
+        <:expr< { $list:pel$ } >>
     | e -> e ]
 ;
 
 value substp mloc env =
   loop where rec loop =
     fun
-    [ MLast.ExApp _ e1 e2 -> MLast.PaApp loc (loop e1) (loop e2)
-    | MLast.ExChr _ c -> MLast.PaChr loc c
-    | MLast.ExLid _ x ->
-        try MLast.PaAnt loc (List.assoc x env) with
-        [ Not_found -> MLast.PaLid loc x ]
-    | MLast.ExUid _ x ->
-        try MLast.PaAnt loc (List.assoc x env) with
-        [ Not_found -> MLast.PaUid loc x ]
-    | MLast.ExInt _ x -> MLast.PaInt loc x
-    | MLast.ExTup _ x -> MLast.PaTup loc (List.map loop x)
-    | MLast.ExRec _ pel None ->
+    [ <:expr< $e1$ $e2$ >> -> <:patt< $loop e1$ $loop e2$ >>
+    | <:expr< $chr:c$ >> -> <:patt< $chr:c$ >>
+    | <:expr< $lid:x$ >> ->
+        try <:patt< $anti:List.assoc x env$ >> with
+        [ Not_found -> <:patt< $lid:x$ >> ]
+    | <:expr< $uid:x$ >> ->
+        try <:patt< $anti:List.assoc x env$ >> with
+        [ Not_found -> <:patt< $uid:x$ >> ]
+    | <:expr< $int:x$ >> -> <:patt< $int:x$ >>
+    | <:expr< ( $list:x$ ) >> -> <:patt< ( $list:List.map loop x$ ) >>
+    | <:expr< { $list:pel$ } >> ->
         let ppl = List.map (fun (p, e) -> (p, loop e)) pel in
-        MLast.PaRec loc ppl
+        <:patt< { $list:ppl$ } >>
     | x ->
         Stdpp.raise_with_loc mloc
           (Failure
@@ -125,6 +129,8 @@ value incorrect_number loc l1 l2 =
           (List.length l2) (List.length l1)))
 ;
 
+value first_pos = IFDEF CAMLP4S THEN Stdpp.first_pos ELSE fst END;
+
 value define eo x =
   do {
     let gloc = loc in
@@ -133,12 +139,13 @@ value define eo x =
         EXTEND
           expr: LEVEL "simple"
             [ [ UIDENT $x$ ->
-                  may_eval (Pcaml.expr_reloc (fun _ -> loc) (fst gloc) e) ] ]
+                  may_eval
+                    (Pcaml.expr_reloc (fun _ -> loc) (first_pos gloc) e) ] ]
           ;
           patt: LEVEL "simple"
             [ [ UIDENT $x$ ->
                   let p = substp loc [] e in
-                  Pcaml.patt_reloc (fun _ -> loc) (fst gloc) p ] ]
+                  Pcaml.patt_reloc (fun _ -> loc) (first_pos gloc) p ] ]
           ;
         END
     | Some (sl, e) ->
@@ -153,7 +160,8 @@ value define eo x =
                   if List.length el = List.length sl then
                     let env = List.combine sl el in
                     let e = subst loc env e in
-                    may_eval (Pcaml.expr_reloc (fun _ -> loc) (fst gloc) e)
+                    may_eval (Pcaml.expr_reloc (fun _ -> loc)
+                      (first_pos gloc) e)
                   else
                     incorrect_number loc el sl ] ]
           ;
@@ -167,7 +175,7 @@ value define eo x =
                   if List.length pl = List.length sl then
                     let env = List.combine sl pl in
                     let p = substp loc env e in
-                    Pcaml.patt_reloc (fun _ -> loc) (fst gloc) p
+                    Pcaml.patt_reloc (fun _ -> loc) (first_pos gloc) p
                   else
                     incorrect_number loc pl sl ] ]
           ;
