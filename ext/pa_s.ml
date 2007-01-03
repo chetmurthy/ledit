@@ -2,6 +2,7 @@
 
 #load "pa_extend.cmo";
 #load "q_MLast.cmo";
+#load "pa_macro.cmo";
 
 open Pcaml;
 
@@ -30,10 +31,6 @@ do {
 
 Pcaml.parse_interf.val := Grammar.Entry.parse interf;
 Pcaml.parse_implem.val := Grammar.Entry.parse implem;
-
-value merge_couple loc1 loc2 =
-  Stdpp.sub_loc loc1 0 (Stdpp.last_pos loc2 - Stdpp.first_pos loc1)
-;
 
 value o2b =
   fun
@@ -69,9 +66,18 @@ value mkuminpat loc arg =
   | _ -> invalid_arg "mkuminpat" ]
 ;
 
+IFDEF CAMLP4S THEN declare
+value merge_couple loc1 loc2 =
+  Stdpp.sub_loc loc1 0 (Stdpp.last_pos loc2 - Stdpp.first_pos loc1)
+;
+
 value loc_merge (x : MLast.loc) (y : MLast.loc) : MLast.loc =
   Stdpp.encl_loc x y
 ;
+end ELSE declare
+value merge_couple (bp, _) (_, ep) = (bp, ep);
+value loc_merge (bp, _) (_, ep) = (bp, ep);
+end END;
 
 value mklistexp loc last =
   loop True where rec loop top =
@@ -300,9 +306,6 @@ EXTEND
       | "~-."; e = SELF -> <:expr< ~-. $e$ >> ]
     | "simple"
       [ s = INT -> <:expr< $int:s$ >>
-      | s = INT_l -> <:expr< $int32:s$ >>
-      | s = INT_L -> <:expr< $int64:s$ >>
-      | s = INT_n -> <:expr< $nativeint:s$ >>
       | s = FLOAT -> <:expr< $flo:s$ >>
       | s = STRING -> <:expr< $str:s$ >>
       | s = CHAR -> <:expr< $chr:s$ >>
@@ -386,9 +389,6 @@ EXTEND
       [ s = LIDENT -> <:patt< $lid:s$ >>
       | s = UIDENT -> <:patt< $uid:s$ >>
       | s = INT -> <:patt< $int:s$ >>
-      | s = INT_l -> <:patt< $int32:s$ >>
-      | s = INT_L -> <:patt< $int64:s$ >>
-      | s = INT_n -> <:patt< $nativeint:s$ >>
       | s = FLOAT -> <:patt< $flo:s$ >>
       | s = STRING -> <:patt< $str:s$ >>
       | s = CHAR -> <:patt< $chr:s$ >>

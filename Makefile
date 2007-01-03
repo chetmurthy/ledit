@@ -42,7 +42,7 @@ depend:
 include .depend
 
 ext/%.cmo: ext/%.ml
-	camlp4r -I ext $< -o ext/$*.ppo
+	camlp4r -I ext -loc loc $< -o ext/$*.ppo
 	$(OCAMLC) -I +camlp4 -c -impl ext/$*.ppo
 	rm -f ext/$*.ppo
 

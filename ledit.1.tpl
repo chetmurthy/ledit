@@ -1,4 +1,4 @@
-.TH LEDIT 1 "Wed May 31, 2006" "INRIA"
+.TH LEDIT 1 "Wed Jan 3, 2007" "INRIA"
 .SH NAME
 ledit \- line editor, version LEDIT_VERSION
 
