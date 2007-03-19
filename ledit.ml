@@ -181,8 +181,7 @@ type state =
     abbrev : mutable option abbrev_data }
 ;
 
-value bs = '\b';
-
+value put_bs st = output_char stderr '\b';
 value put_char st c = output_char stderr c;
 value put_newline st = prerr_endline "";
 value flush_out st = flush stderr;
@@ -296,7 +295,7 @@ value display st =
       if i >= st.od.len || st.od.buf.[i] <> st.nd.buf.[i] then (
         while i < st.od.cur do
           st.od.cur := st.od.cur - 1;
-          put_char st bs;
+          put_bs st;
         done;
         while st.od.cur < i do
           let c = st.nd.buf.[st.od.cur] in
@@ -321,9 +320,9 @@ value display st =
           st.od.cur := st.od.cur + 1;
         done;
         while st.od.cur > st.nd.len do
-          put_char st bs;
+          put_bs st;
           put_char st ' ';
-          put_char st bs;
+          put_bs st;
           st.od.cur := st.od.cur - 1;
         done
       )
@@ -334,7 +333,7 @@ value display st =
         st.od.cur := st.od.cur + 1;
       done;
       while st.od.cur > st.nd.cur do
-        put_char st bs;
+        put_bs st;
         st.od.cur := st.od.cur - 1;
       done;
       flush_out st
