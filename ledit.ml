@@ -93,61 +93,69 @@ value (o_command_of_char, set_o_command) =
    fun c comm -> command_vect.(Char.code c) := comm)
 ;
 
-set_char_command (CTRL 'a') Beginning_of_line;
-set_char_command (CTRL 'e') End_of_line;
-set_char_command (CTRL 'f') Forward_char;
-set_char_command (CTRL 'b') Backward_char;
-set_char_command (META 'f') Forward_word;
-set_char_command (META 'b') Backward_word;
-set_char_command (CTRL 'p') Previous_history;
-set_char_command (CTRL 'n') Next_history;
-set_char_command (META '<') Beginning_of_history;
-set_char_command (META '>') End_of_history;
-set_char_command (CTRL 'r') Reverse_search_history;
-set_char_command (CTRL 'd') Delete_char;
-set_char_command (CTRL 'h') Backward_delete_char;
-set_char_command DEL Backward_delete_char;
-set_char_command (CTRL 't') Transpose_chars;
-set_char_command (META 'c') Capitalize_word;
-set_char_command (META 'u') Upcase_word;
-set_char_command (META 'l') Downcase_word;
-set_char_command (META 'd') Kill_word;
-set_char_command (META (CTRL 'h')) Backward_kill_word;
-set_char_command (META DEL) Backward_kill_word;
-set_char_command (CTRL 'q') Quoted_insert;
-set_char_command (CTRL 'k') Kill_line;
-set_char_command (CTRL 'y') Yank;
-set_char_command (CTRL 'u') Unix_line_discard;
-set_char_command (CTRL 'l') Refresh_line;
-set_char_command (CTRL 'g') Abort;
-set_char_command (CTRL 'c') Interrupt;
-set_char_command (CTRL 'z') Suspend;
-set_char_command (CTRL '|') Quit;
-set_char_command '\n' Accept_line;
-set_char_command (CTRL 'x') Operate_and_get_next;
-set_char_command ESC Start_escape_sequence;
-set_char_command (META '/') Expand_abbrev;
-set_escape_command 'f' Forward_word;
-set_escape_command 'b' Backward_word;
-set_escape_command 'c' Capitalize_word;
-set_escape_command 'u' Upcase_word;
-set_escape_command 'l' Downcase_word;
-set_escape_command '<' Beginning_of_history;
-set_escape_command '>' End_of_history;
-set_escape_command 'd' Kill_word;
-set_escape_command (CTRL 'h') Backward_kill_word;
-set_escape_command DEL Backward_kill_word;
-set_escape_command '[' Start_csi_sequence;
-set_escape_command 'O' Start_o_sequence;
-set_escape_command '/' Expand_abbrev;
-set_csi_command 'A' Previous_history;
-set_csi_command 'B' Next_history;
-set_csi_command 'C' Forward_char;
-set_csi_command 'D' Backward_char;
-set_o_command 'A' Previous_history;
-set_o_command 'B' Next_history;
-set_o_command 'C' Forward_char;
-set_o_command 'D' Backward_char;
+value meta_as_escape = ref True;
+value unset_meta_as_escape () = meta_as_escape.val := False;
+
+value init_commands () = (
+  set_char_command (CTRL 'a') Beginning_of_line;
+  set_char_command (CTRL 'e') End_of_line;
+  set_char_command (CTRL 'f') Forward_char;
+  set_char_command (CTRL 'b') Backward_char;
+  set_char_command (CTRL 'p') Previous_history;
+  set_char_command (CTRL 'n') Next_history;
+  set_char_command (CTRL 'r') Reverse_search_history;
+  set_char_command (CTRL 'd') Delete_char;
+  set_char_command (CTRL 'h') Backward_delete_char;
+  set_char_command DEL Backward_delete_char;
+  set_char_command (CTRL 't') Transpose_chars;
+  set_char_command (CTRL 'q') Quoted_insert;
+  set_char_command (CTRL 'k') Kill_line;
+  set_char_command (CTRL 'y') Yank;
+  set_char_command (CTRL 'u') Unix_line_discard;
+  set_char_command (CTRL 'l') Refresh_line;
+  set_char_command (CTRL 'g') Abort;
+  set_char_command (CTRL 'c') Interrupt;
+  set_char_command (CTRL 'z') Suspend;
+  set_char_command (CTRL '|') Quit;
+  set_char_command '\n' Accept_line;
+  set_char_command (CTRL 'x') Operate_and_get_next;
+  set_char_command ESC Start_escape_sequence;
+  set_escape_command 'f' Forward_word;
+  set_escape_command 'b' Backward_word;
+  set_escape_command 'c' Capitalize_word;
+  set_escape_command 'u' Upcase_word;
+  set_escape_command 'l' Downcase_word;
+  set_escape_command '<' Beginning_of_history;
+  set_escape_command '>' End_of_history;
+  set_escape_command 'd' Kill_word;
+  set_escape_command (CTRL 'h') Backward_kill_word;
+  set_escape_command DEL Backward_kill_word;
+  set_escape_command '[' Start_csi_sequence;
+  set_escape_command 'O' Start_o_sequence;
+  set_escape_command '/' Expand_abbrev;
+  set_csi_command 'A' Previous_history;
+  set_csi_command 'B' Next_history;
+  set_csi_command 'C' Forward_char;
+  set_csi_command 'D' Backward_char;
+  set_o_command 'A' Previous_history;
+  set_o_command 'B' Next_history;
+  set_o_command 'C' Forward_char;
+  set_o_command 'D' Backward_char;
+  if meta_as_escape.val then (
+    set_char_command (META 'f') Forward_word;
+    set_char_command (META 'b') Backward_word;
+    set_char_command (META '<') Beginning_of_history;
+    set_char_command (META '>') End_of_history;
+    set_char_command (META 'c') Capitalize_word;
+    set_char_command (META 'u') Upcase_word;
+    set_char_command (META 'l') Downcase_word;
+    set_char_command (META 'd') Kill_word;
+    set_char_command (META (CTRL 'h')) Backward_kill_word;
+    set_char_command (META DEL) Backward_kill_word;
+    set_char_command (META '/') Expand_abbrev;
+  )
+  else ();
+);
 
 type line = { buf : mutable string; cur : mutable int; len : mutable int };
 type abbrev_data =
@@ -190,7 +198,7 @@ value saved_tcio =
 ;
 value edit_tcio = ref None;
 
-value set_edit () =
+value set_edit () = (
   let tcio =
     match edit_tcio.val with
     [ Some e -> e
@@ -205,7 +213,9 @@ value set_edit () =
         tcio
       ) ]
   in
-  Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio
+  Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio;
+  init_commands ();
+)
 and unset_edit () = Unix.tcsetattr Unix.stdin Unix.TCSADRAIN saved_tcio;
 
 value line_set_nth_char line i c =

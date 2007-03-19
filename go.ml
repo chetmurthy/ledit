@@ -25,10 +25,10 @@ value usage () = (
   prerr_endline " -l len : line max length";
   prerr_endline " -v : prints ledit version and exit";
   prerr_endline "Exec comm [args] as child process";
-  exit 1
 );
 
-value get_arg i = if i >= Array.length argv then usage () else argv.(i);
+value get_arg i =
+  if i >= Array.length argv then (usage (); exit 1) else argv.(i);
 
 value histfile = ref "";
 value trunc = ref True;
@@ -40,23 +40,31 @@ arg_loop 1 where arg_loop i =
     arg_loop
       (match argv.(i) with
        [ "-h" -> (histfile.val := get_arg (i + 1); i + 2)
+       | "-help" -> (usage (); exit 0)
        | "-l" -> (
            let x = get_arg (i + 1) in
-           try set_max_len (int_of_string x) with _ -> usage ();
+           try set_max_len (int_of_string x) with _ -> (usage (); exit 1);
            i + 2
          )
        | "-x" -> (trunc.val := False; i + 1)
+       | "-u" -> (unset_meta_as_escape (); i + 1)
        | "-v" -> (
            Printf.printf "Ledit version %s\n" version;
            flush stdout;
            exit 0
          )
        | _ ->
-           let i = if argv.(i) = "-c" then i + 1 else i in
            if i < Array.length argv then (
-             comm.val := argv.(i);
-             args.val := Array.sub argv i (Array.length argv - i);
-             Array.length argv
+             if argv.(i).[0] = '-' then (
+               prerr_endline ("Illegal option " ^ argv.(i));
+               prerr_endline "Use option -help for usage";
+               exit 1
+             )
+             else (
+               comm.val := argv.(i);
+               args.val := Array.sub argv i (Array.length argv - i);
+               Array.length argv
+             )
            )
            else Array.length argv ])
   else ()
