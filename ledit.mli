@@ -11,7 +11,11 @@
 
 (* $Id$ *)
 
-value input_char : in_channel -> char;
+type a_char = 'abstract;
+
+value input_char : in_channel -> a_char;
+value print_a_char : a_char -> unit;
+
 value set_prompt : string -> unit;
 value get_prompt : unit -> string;
 value open_histfile : bool -> string -> unit;

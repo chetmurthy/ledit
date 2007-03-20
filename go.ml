@@ -81,9 +81,8 @@ value string_of_signal =
 
 value rec read_loop () = (
   try
-    match input_char stdin with
-    [ '\n' -> print_newline ()
-    | x -> print_char x ]
+    let c = input_char stdin in
+    print_a_char c
   with
   [ Break -> () ];
   read_loop ()
