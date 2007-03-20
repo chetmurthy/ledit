@@ -1,10 +1,12 @@
 Ledit Version 1.12
 ------------------
 
+- [20 Mar 2007] Added options specifying encoding: -a for Ascii -u for Utf-8.
+
 Ledit Version 1.11
 ------------------
 
-- [15 Aut 2001] Added licence (open source)
+- [15 Aug 2001] Added licence (open source)
 
 Ledit Version 1.10
 ------------------
