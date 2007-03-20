@@ -210,7 +210,7 @@ value set_max_len x =
 ;
 
 value son = ref None;
-value set_son pid = son.val := Some pid;
+value set_son_pid pid = son.val := Some pid;
 
 type command =
   [ Abort

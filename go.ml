@@ -101,7 +101,7 @@ value go () =
     Unix.dup2 od Unix.stdout;
     Unix.close id;
     Unix.close od;
-    set_son pid;
+    set_son_pid pid;
     let _ =
       (signal sigchld
          (Signal_handle
