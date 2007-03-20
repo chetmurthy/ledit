@@ -34,6 +34,7 @@ module A :
         value read : unit -> t;
         value print : t -> unit;
         value prerr : t -> unit;
+        value prerr_backsp : t -> unit;
       end;
     module String :
       sig
@@ -52,70 +53,143 @@ module A :
   end =
   struct
     value encoding = ref Iso_8859;
+    value char_code = Char.code;
+    value nbc c =
+      if Char.code c < 0b10000000 then 1
+      else if Char.code c < 0b11000000 then -1
+      else if Char.code c < 0b11100000 then 2
+      else if Char.code c < 0b11110000 then 3
+      else if Char.code c < 0b11111000 then 4
+      else if Char.code c < 0b11111100 then 5
+      else if Char.code c < 0b11111110 then 6
+      else -1
+    ;
     module Char =
       struct
-        type t = char;
-        value of_ascii c = c;
-        value to_ascii c = if Char.code c < 128 then Some c else None;
-        value is_word_char =
-           fun
-           [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> True
-           | x ->
-               if Char.code x < 128 then False
-               else
-                 match encoding.val with
-                 [ Ascii -> False
-                 | Iso_8859 -> Char.code x >= 160
-                 | Utf_8 -> True ] ]
+        type t = string;
+       value of_ascii c = String.make 1 c;
+        value to_ascii c =
+           if String.length c = 1 && Char.code c.[0] < 128 then Some c.[0]
+           else None
+        ;
+        value is_word_char c =
+           if String.length c = 1 then
+             match c.[0] with
+             [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> True
+             | x ->
+                 if Char.code x < 128 then False
+                 else
+                   match encoding.val with
+                   [ Ascii -> False
+                   | Iso_8859 -> Char.code x >= 160
+                   | Utf_8 -> assert False ] ]
+           else True
         ;
         value ctrl_val c =
-          if Char.code c < 32 || Char.code c == 127 then
-            Some (Char.chr (127 land (Char.code c + 64)))
+          if String.length c = 1 then
+            let c = c.[0] in
+            if Char.code c < 32 || Char.code c == 127 then
+              Some (String.make 1 (Char.chr (127 land (Char.code c + 64))))
+            else None
           else None
         ;
         value meta_ctrl_val c =
-          if Char.code c >= 128 && Char.code c < 160 then
-            Some (Char.chr (127 land (Char.code c + 64)))
+          if String.length c = 1 then
+            let c = c.[0] in
+            if Char.code c >= 128 && Char.code c < 160 then
+              Some (String.make 1 (Char.chr (127 land (Char.code c + 64))))
+            else None
           else None
         ;
         value not_ascii_val c =
-          if Char.code c >= 128 then
-            let c1 = Char.chr (Char.code c / 100 + Char.code '0') in
-            let c2 = Char.chr (Char.code c mod 100 / 10 + Char.code '0') in
-            let c3 = Char.chr (Char.code c mod 10 + Char.code '0') in
-            Some (c1, c2, c3)
+          if String.length c = 1 then
+            let c = c.[0] in
+            if Char.code c >= 128 then
+              let c1 = Char.chr (Char.code c / 100 + Char.code '0') in
+              let c2 = Char.chr (Char.code c mod 100 / 10 + Char.code '0') in
+              let c3 = Char.chr (Char.code c mod 10 + Char.code '0') in
+              Some (String.make 1 c1, String.make 1 c2, String.make 1 c3)
+            else None
           else None
         ;
         value uppercase c =
-          if encoding.val = Utf_8 then c else Char.uppercase c;
+          match encoding.val with
+          [ Ascii | Iso_8859 -> String.uppercase c
+          | Utf_8 ->
+              if String.length c = 1 then
+                if Char.code c.[0] < 128 then String.uppercase c else c
+              else c ]
+        ;
         value lowercase c =
-          if encoding.val = Utf_8 then c else Char.lowercase c;
-        value input = input_char;
+          match encoding.val with
+          [ Ascii | Iso_8859 -> String.lowercase c
+          | Utf_8 ->
+              if String.length c = 1 then
+                if Char.code c.[0] < 128 then String.lowercase c else c
+              else c ]
+        ;
+        value get_char f =
+          match encoding.val with
+          [ Ascii | Iso_8859 -> String.make 1 (f ())
+          | Utf_8 ->
+              let c = f () in
+              let nbc = nbc c in
+              if nbc < 0 then "?"
+              else if nbc = 1 then String.make 1 c
+              else
+                loop (String.make 1 c) (nbc - 1) where loop s n =
+                  if n = 0 then s
+                  else
+                    let c = f () in
+                    if Char.code c < 0b10000000 then "?"
+                    else if Char.code c > 0b10111111 then "?"
+                    else loop (s ^ String.make 1 c) (n - 1) ]
+        ;
+        value input ic = get_char (fun () -> input_char ic);
         value read =
           let buff = " " in
           fun () ->
-            let len = Unix.read Unix.stdin buff 0 1 in
-            if len == 0 then raise End_of_file else buff.[0]
+            get_char
+              (fun () ->
+                 let len = Unix.read Unix.stdin buff 0 1 in
+                 if len == 0 then raise End_of_file else buff.[0])
         ;
         value print c =
-          if c = '\n' then print_newline ()
-          else print_char c
+          if String.length c = 1 && c.[0] = '\n' then print_newline ()
+          else print_string c
         ;
-        value prerr = output_char stderr;
+        value prerr c = output_string stderr c;
+        value prerr_backsp c = output_string stderr "\b";
       end;
     module String =
       struct
-        type t = string;
-        value empty = "";
-        value of_char = String.make 1;
-        value of_ascii s = s;
-        value length = String.length;
-        value set = String.set;
-        value get = String.get;
-        value sub = String.sub;
-        value concat = \^;
-        value input_line = input_line;
-        value output = output_string;
+        type t = array string;
+        value empty = [| |];
+        value of_char c = [| c |];
+        value of_ascii s =
+          Array.init (String.length s)
+            (fun i ->
+               if char_code s.[i] < 128 then String.make 1 s.[i]
+               else invalid_arg "A.String.of_ascii")
+        ;
+        value length = Array.length;
+        value set = Array.set;
+        value get = Array.get;
+        value sub = Array.sub;
+        value concat = Array.append;
+        value input_line ic =
+          let s = input_line ic in
+          match encoding.val with
+          [ Ascii | Iso_8859 -> of_ascii s
+          | Utf_8 ->
+              loop [] 0 where loop list i =
+                if i >= String.length s then Array.of_list (List.rev list)
+                else
+                  let n = nbc s.[i] in
+                  if n < 0 then loop ["?" :: list] (i + 1)
+                  else loop [String.sub s i n :: list] (i + n) ]
+        ;
+        value output oc s = Array.iter (output_string oc) s;
       end;
   end
 ;
@@ -216,6 +290,7 @@ value (o_command_of_char, set_o_command) =
 
 value meta_as_escape = ref True;
 value unset_meta_as_escape () = meta_as_escape.val := False;
+value set_utf8 () = A.encoding.val := Utf_8;
 
 value init_commands () = (
   set_char_command (CTRL 'a') Beginning_of_line;
@@ -305,8 +380,8 @@ type state =
     abbrev : mutable option abbrev_data }
 ;
 
-value put_bs st = output_char stderr '\b';
-value put_char st c = output_char stderr c;
+value put_bs st c = A.Char.prerr_backsp c;
+value put_space st = output_char stderr ' ';
 value put_newline st = prerr_endline "";
 value flush_out st = flush stderr;
 value bell () = (prerr_string "\007"; flush stderr);
@@ -441,7 +516,7 @@ value display st =
       then (
         while i < st.od.cur do
           st.od.cur := st.od.cur - 1;
-          put_bs st;
+          put_bs st (A.String.get st.od.buf i);
         done;
         while st.od.cur < i do
           let c = A.String.get st.nd.buf st.od.cur in
@@ -467,10 +542,10 @@ value display st =
           st.od.cur := st.od.cur + 1;
         done;
         while st.od.cur > st.nd.len do
-          put_bs st;
-          put_char st ' ';
-          put_bs st;
           st.od.cur := st.od.cur - 1;
+          put_bs st (A.String.get st.od.buf st.od.cur);
+          put_space st;
+          put_bs st (A.Char.of_ascii ' ');
         done
       )
       else ();
@@ -480,8 +555,8 @@ value display st =
         st.od.cur := st.od.cur + 1;
       done;
       while st.od.cur > st.nd.cur do
-        put_bs st;
         st.od.cur := st.od.cur - 1;
+        put_bs st (A.String.get st.nd.buf st.od.cur);
       done;
       flush_out st
     )

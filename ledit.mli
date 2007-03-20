@@ -24,3 +24,4 @@ value set_max_len : int -> unit;
 value set_son : int -> unit;
 
 value unset_meta_as_escape : unit -> unit;
+value set_utf8 : unit -> unit;

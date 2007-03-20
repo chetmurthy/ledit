@@ -23,6 +23,7 @@ value usage () = (
   prerr_endline " -h file : history file";
   prerr_endline " -x  : don't remove old contents of history";
   prerr_endline " -l len : line max length";
+  prerr_endline " -u : utf-8 encoding";
   prerr_endline " -v : prints ledit version and exit";
   prerr_endline "Exec comm [args] as child process";
 );
@@ -47,7 +48,7 @@ arg_loop 1 where arg_loop i =
            i + 2
          )
        | "-x" -> (trunc.val := False; i + 1)
-       | "-u" -> (unset_meta_as_escape (); i + 1)
+       | "-u" -> (set_utf8 (); unset_meta_as_escape (); i + 1)
        | "-v" -> (
            Printf.printf "Ledit version %s\n" version;
            flush stdout;
