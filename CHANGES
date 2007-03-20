@@ -1,7 +1,12 @@
-Ledit Version 1.12
+Ledit Version 1.13
 ------------------
 
 - [20 Mar 2007] Added options specifying encoding: -a for Ascii -u for Utf-8.
+
+Ledit Version 1.12
+------------------
+
+- [03 Jan 2007] Changed man page ledit.l into ledit.1
 
 Ledit Version 1.11
 ------------------
