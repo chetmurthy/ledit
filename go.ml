@@ -20,6 +20,7 @@ value usage () = (
   prerr_string "Usage: ";
   prerr_string argv.(0);
   prerr_endline " [options] [comm [args]]";
+  prerr_endline " -a : ascii encoding";
   prerr_endline " -h file : history file";
   prerr_endline " -x  : don't remove old contents of history";
   prerr_endline " -l len : line max length";
@@ -40,7 +41,8 @@ arg_loop 1 where arg_loop i =
   if i < Array.length argv then
     arg_loop
       (match argv.(i) with
-       [ "-h" -> (histfile.val := get_arg (i + 1); i + 2)
+       [ "-a" -> (set_ascii (); i + 1)
+       | "-h" -> (histfile.val := get_arg (i + 1); i + 2)
        | "-help" -> (usage (); exit 0)
        | "-l" -> (
            let x = get_arg (i + 1) in

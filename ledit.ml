@@ -298,7 +298,9 @@ value (o_command_of_char, set_o_command) =
 
 value meta_as_escape = ref True;
 value unset_meta_as_escape () = meta_as_escape.val := False;
+
 value set_utf8 () = A.encoding.val := Utf_8;
+value set_ascii () = A.encoding.val := Ascii;
 
 value init_commands () = (
   set_char_command (CTRL 'a') Beginning_of_line;
