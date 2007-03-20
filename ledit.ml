@@ -159,7 +159,7 @@ module A :
           else print_string c
         ;
         value prerr c = output_string stderr c;
-        value prerr_backsp c = output_string stderr "\b";
+        value prerr_backsp c = output_char stderr '\b';
       end;
     module String =
       struct
