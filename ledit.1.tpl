@@ -7,6 +7,7 @@ ledit \- line editor, version LEDIT_VERSION
 [-h \fIfile\fP]
 [-x]
 [-l \fIlength\fP]
+[-a | -u]
 [\fIcommand options\fP]
 
 .SH DESCRIPTION
@@ -34,6 +35,14 @@ Print ledit version and exit.
 Tells that \fIlength\fP is the maximum line length displayed. If the
 line edited is longer than this length, the line scrolls horizontally,
 while editing. The default value is 70.
+.TP
+.B -a
+Ascii encoding: characters whose code is greater than 128 are displayed
+with a backslash followed by their code.
+.TP
+.B -u
+Unicode encoding: the terminal must have been set in unicode mode. See
+commands \fBunicode_start\fP and \fBunicode_stop\fP.
 .TP
 \fIcommand options\fP
 Runs the command \fIcommand\fP and its possible options. This
@@ -132,6 +141,10 @@ do this if the called program is not waiting on standard input.
 .br
 In some systems (e.g. alpha), pasting two many characters works bad and
 may block the terminal. Probably a kernel problem. No solution.
+
+.SH SEE ALSO
+
+unicode_start(1), unicode_stop(1).
 
 .SH AUTHOR
 Daniel de Rauglaudre, at INRIA, france.

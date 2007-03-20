@@ -4,8 +4,6 @@ Ledit is a line editor, allowing to use control commands like in emacs
 or in shells (bash, tcsh). To be used with interactive commands. It is
 written in OCaml and uses the library unix.cma.
 
-This is the version 1.12.
-
   COPYRIGHT:
 
 All files in this distribution are copyright 2001-2007 Institut
