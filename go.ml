@@ -85,7 +85,7 @@ value string_of_signal =
 value rec read_loop () = (
   try
     let c = input_char stdin in
-    print_string c
+    if c = "\n" then print_newline () else print_string c
   with
   [ Break -> () ];
   read_loop ()
