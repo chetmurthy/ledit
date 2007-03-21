@@ -30,6 +30,7 @@ module A :
         value not_ascii_val : t -> option (t * t * t);
         value uppercase : t -> t;
         value lowercase : t -> t;
+        value to_string : t -> string;
         value input : in_channel -> t;
         value read : unit -> t;
         value print : t -> unit;
@@ -128,6 +129,7 @@ module A :
                 if Char.code c.[0] < 128 then String.lowercase c else c
               else c ]
         ;
+        value to_string s = s;
         value get_char f =
           match encoding.val with
           [ Ascii | Iso_8859 -> String.make 1 (f ())
@@ -203,9 +205,6 @@ module A :
       end;
   end
 ;
-
-type a_char = A.Char.t;
-value print_a_char = A.Char.print;
 
 DEFINE CTRL(x) = EVAL (Char.chr (Char.code x - (Char.code 'a' - 1)));
 DEFINE META(x) = EVAL (Char.chr (Char.code x + 128));
@@ -1149,13 +1148,13 @@ and close_histfile () =
   | None -> () ]
 ;
 
-value (set_prompt, get_prompt, input_char) =
+value (set_prompt, get_prompt, input_a_char) =
   let prompt = ref ""
   and buff = ref A.String.empty
   and ind = ref 1 in
   let set_prompt x = prompt.val := x
   and get_prompt () = prompt.val
-  and input_char ic =
+  and input_a_char ic =
     if ic != stdin then A.Char.input ic
     else (
       if ind.val > A.String.length buff.val then (
@@ -1178,5 +1177,7 @@ value (set_prompt, get_prompt, input_char) =
       c
     )
   in
-  (set_prompt, get_prompt, input_char)
+  (set_prompt, get_prompt, input_a_char)
 ;
+
+value input_char ic = A.Char.to_string (input_a_char ic);

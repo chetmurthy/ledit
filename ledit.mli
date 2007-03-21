@@ -11,10 +11,7 @@
 
 (* $Id$ *)
 
-type a_char = 'abstract;
-
-value input_char : in_channel -> a_char;
-value print_a_char : a_char -> unit;
+value input_char : in_channel -> string;
 
 value set_prompt : string -> unit;
 value get_prompt : unit -> string;
