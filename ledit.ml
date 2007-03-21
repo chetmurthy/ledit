@@ -160,7 +160,9 @@ module A :
         ;
         value prerr c = output_string stderr c;
         value prerr_backsp c = (
-          if Char.code c.[0] >= 228 && Char.code c.[0] <= 233 then
+          if encoding.val = Utf_8 &&
+             Char.code c.[0] >= 228 && Char.code c.[0] <= 233
+          then
             (* hack for Chinese; it seems that terminals (at least
                "konsole" and "xterm") need 2 backspaces to put the
                cursor on the glyph. *)
