@@ -68,7 +68,7 @@ module A :
     module Char =
       struct
         type t = string;
-       value of_ascii c = String.make 1 c;
+        value of_ascii c = String.make 1 c;
         value to_ascii c =
            if String.length c = 1 && Char.code c.[0] < 128 then Some c.[0]
            else None
@@ -784,7 +784,7 @@ value reverse_search_history st =
         then
           find_line (cnt + 1, Cursor.peek st.history) str
         else (bell (); (cnt, fstr))
-      else if A.String.get str istr != A.String.get fstr ifstr then
+      else if A.String.get str istr <> A.String.get fstr ifstr then
         find_rec (ifstr + 1) 0
       else find_rec (ifstr + 1) (istr + 1)
   in

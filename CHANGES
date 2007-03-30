@@ -1,6 +1,8 @@
 Ledit Version 1.14
 ------------------
 
+- [30 Mar 2007] Fixed bug: reverse incremental search did not work.
+
 Ledit Version 1.13
 ------------------
 
