@@ -439,7 +439,10 @@ EXTEND
   type_declaration:
     [ [ n = type_patt; tpl = LIST0 type_parameter; "="; tk = ctyp;
         cl = LIST0 constrain ->
-          (n, tpl, tk, cl) ] ]
+          IFDEF CAMLP4S_4_02 THEN
+            {MLast.tdNam = n; MLast.tdPrm = tpl; MLast.tdPrv = False;
+             MLast.tdDef = tk; MLast.tdCon = cl}
+          ELSE (n, tpl, tk, cl) END ] ]
   ;
   type_patt:
     [ [ n = LIDENT -> (loc, n) ] ]
