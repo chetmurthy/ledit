@@ -1,6 +1,9 @@
 Ledit Version 1.16
 ------------------
 
+- [16 Jul 2007] Fixed bug: parentheses did not balance in case of string.
+  E.g. : (foijeoif) balance, but not ("foijfe").
+
 Ledit Version 1.15
 ------------------
 

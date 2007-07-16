@@ -592,7 +592,7 @@ value balance_paren st c =
                 let rec skip_string i =
                   if i < 0 then i
                   else if
-                    A.String.get st.line.buf i == A.Char.of_ascii '"'
+                    A.String.get st.line.buf i = A.Char.of_ascii '"'
                   then i - 1
                   else skip_string (i - 1)
                 in
