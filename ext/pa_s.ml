@@ -66,7 +66,7 @@ value mkuminpat loc arg =
   | _ -> invalid_arg "mkuminpat" ]
 ;
 
-IFDEF CAMLP4S THEN declare
+IFDEF CAMLP5 THEN declare
 value merge_couple loc1 loc2 =
   Stdpp.sub_loc loc1 0 (Stdpp.last_pos loc2 - Stdpp.first_pos loc1)
 ;
@@ -439,7 +439,7 @@ EXTEND
   type_declaration:
     [ [ n = type_patt; tpl = LIST0 type_parameter; "="; tk = ctyp;
         cl = LIST0 constrain ->
-          IFDEF CAMLP4S_4_02 THEN
+          IFDEF CAMLP5_4_02 THEN
             {MLast.tdNam = n; MLast.tdPrm = tpl; MLast.tdPrv = False;
              MLast.tdDef = tk; MLast.tdCon = cl}
           ELSE (n, tpl, tk, cl) END ] ]

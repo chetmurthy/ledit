@@ -5,7 +5,7 @@ LIBDIR=/usr/local/lib
 MANDIR=/usr/local/man/man1
 OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
-CAMLP4=camlp4 -I ext pa_s.cmo pr_dump.cmo
+CAMLP5=camlp5 -I ext pa_s.cmo pr_dump.cmo
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 MKDIR=mkdir -p
@@ -34,7 +34,7 @@ install:
 depend:
 	> .depend.new
 	for i in $(ZOFILES:.cmo=.ml); do \
-	  $(CAMLP4) pr_depend.cmo $$i >> .depend.new; \
+	  $(CAMLP5) pr_depend.cmo $$i >> .depend.new; \
 	done
 	mv .depend .depend.old
 	mv .depend.new .depend
@@ -42,19 +42,19 @@ depend:
 include .depend
 
 ext/%.cmo: ext/%.ml
-	camlp4r -I ext -loc loc $< -o ext/$*.ppo
-	$(OCAMLC) -I +camlp4 -c -impl ext/$*.ppo
+	camlp5r -I ext -loc loc $< -o ext/$*.ppo
+	$(OCAMLC) -I +camlp5 -c -impl ext/$*.ppo
 	rm -f ext/$*.ppo
 
 %.cmo: %.ml
-	$(CAMLP4) $< -o $*.ppo
-	$(OCAMLC) -I +camlp4 -c -impl $*.ppo
+	$(CAMLP5) $< -o $*.ppo
+	$(OCAMLC) -I +camlp5 -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmx: %.ml
-	$(CAMLP4) $< -o $*.ppo
-	$(OCAMLOPT) -I +camlp4 -c -impl $*.ppo
+	$(CAMLP5) $< -o $*.ppo
+	$(OCAMLOPT) -I +camlp5 -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmi: %.mli
-	$(CAMLP4) $< -o $*.ppi
+	$(CAMLP5) $< -o $*.ppi
 	$(OCAMLC) -c -intf $*.ppi
 	/bin/rm -f $*.ppi

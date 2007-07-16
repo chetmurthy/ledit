@@ -22,7 +22,7 @@ value rec list_remove x =
   | [] -> [] ]
 ;
 
-value defined = ref (IFDEF CAMLP4S THEN [("CAMLP4S", None)] ELSE [] END);
+value defined = ref (IFDEF CAMLP5 THEN [("CAMLP5", None)] ELSE [] END);
 
 value is_defined i = List.mem_assoc i defined.val;
 
@@ -129,7 +129,7 @@ value incorrect_number loc l1 l2 =
           (List.length l2) (List.length l1)))
 ;
 
-value first_pos = IFDEF CAMLP4S THEN Stdpp.first_pos ELSE fst END;
+value first_pos = IFDEF CAMLP5 THEN Stdpp.first_pos ELSE fst END;
 
 value define eo x =
   do {
