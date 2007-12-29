@@ -1,8 +1,8 @@
 (* $Id$ *)
 
+#load "pa_macro.cmo";
 #load "pa_extend.cmo";
 #load "q_MLast.cmo";
-#load "pa_macro.cmo";
 
 open Pcaml;
 
@@ -44,10 +44,20 @@ value mksequence loc =
   | [] -> Stdpp.raise_with_loc loc (Failure "empty sequence")
   | el -> <:expr< do { $list:el$ } >> ]
 ;
+
+value mkmatchcase loc p aso w e =
+  let p =
+    match aso with
+    [ Some p2 -> <:patt< ($p$ as $p2$) >>
+    | _ -> p ]
+  in
+  (p, w, e)
+;
       
 value neg_string n =
   let len = String.length n in
-  if len > 0 && n.[0] = '-' then String.sub n 1 (len - 1) else "-" ^ n
+  if len > 0 && n.[0] = '-' then String.sub n 1 (len - 1)
+  else "-" ^ n
 ;
 
 value mkumin loc f arg =
@@ -59,25 +69,10 @@ value mkumin loc f arg =
       <:expr< $lid:f$ $arg$ >> ]
 ;
 
-value mkuminpat loc arg =
-  match arg with
-  [ <:patt< $int:n$ >> -> <:patt< $int:neg_string n$ >>
-  | <:patt< $flo:n$ >> -> <:patt< $flo:neg_string n$ >>
-  | _ -> invalid_arg "mkuminpat" ]
+value first_pos = IFDEF CAMLP5 THEN Stdpp.first_pos ELSE fst END;
+value encl_loc =
+  IFDEF CAMLP5 THEN Stdpp.encl_loc ELSE fun (bp, _) (_, ep) -> (bp, ep) END
 ;
-
-IFDEF CAMLP5 THEN declare
-value merge_couple loc1 loc2 =
-  Stdpp.sub_loc loc1 0 (Stdpp.last_pos loc2 - Stdpp.first_pos loc1)
-;
-
-value loc_merge (x : MLast.loc) (y : MLast.loc) : MLast.loc =
-  Stdpp.encl_loc x y
-;
-end ELSE declare
-value merge_couple (bp, _) (_, ep) = (bp, ep);
-value loc_merge (bp, _) (_, ep) = (bp, ep);
-end END;
 
 value mklistexp loc last =
   loop True where rec loop top =
@@ -87,9 +82,7 @@ value mklistexp loc last =
         [ Some e -> e
         | None -> <:expr< [] >> ]
     | [e1 :: el] ->
-        let loc =
-          if top then loc else loc_merge (MLast.loc_of_expr e1) loc
-        in
+        let loc = if top then loc else encl_loc (MLast.loc_of_expr e1) loc in
         <:expr< [$e1$ :: $loop False el$] >> ]
 ;
 
@@ -101,25 +94,32 @@ value mklistpat loc last =
         [ Some p -> p
         | None -> <:patt< [] >> ]
     | [p1 :: pl] ->
-        let loc =
-          if top then loc else loc_merge (MLast.loc_of_patt p1) loc
-        in
+        let loc = if top then loc else encl_loc (MLast.loc_of_patt p1) loc in
         <:patt< [$p1$ :: $loop False pl$] >> ]
 ;
 
-value mkexprident loc i j =
-  let rec loop m =
-    fun
-    [ <:expr< $x$ . $y$ >> -> loop <:expr< $m$ . $x$ >> y
-    | e -> <:expr< $m$ . $e$ >> ]
+value mkexprident loc ids = match ids with
+  [ [] -> Stdpp.raise_with_loc loc (Stream.Error "illegal long identifier")
+  | [ id :: ids ] ->
+      let rec loop m = fun
+        [ [ id :: ids ] -> loop <:expr< $m$ . $id$ >> ids
+        | [] -> m ]
   in
-  loop <:expr< $uid:i$ >> j
+  loop id ids ]
 ;
 
 value mkassert loc e =
   match e with
   [ <:expr< False >> -> <:expr< assert False >>
   | _ -> <:expr< assert $e$ >> ]
+;
+
+value vala =
+  IFDEF CAMLP5_5_00 THEN
+    fun x -> <:vala< x >>
+  ELSE
+    fun x -> x
+  END
 ;
 
 value ipatt = Grammar.Entry.create gram "ipatt";
@@ -200,8 +200,6 @@ EXTEND
       | "include"; mt = module_type -> <:sig_item< include $mt$ >>
       | "module"; i = UIDENT; mt = module_declaration ->
           <:sig_item< module $i$ : $mt$ >>
-      | "module"; "rec"; mds = LIST1 module_rec_declaration SEP "and" ->
-          <:sig_item< module rec $list:mds$ >>
       | "module"; "type"; i = UIDENT; "="; mt = module_type ->
           <:sig_item< module type $i$ = $mt$ >>
       | "open"; i = mod_ident -> <:sig_item< open $i$ >>
@@ -215,9 +213,6 @@ EXTEND
       [ ":"; mt = module_type -> <:module_type< $mt$ >>
       | "("; i = UIDENT; ":"; t = module_type; ")"; mt = SELF ->
           <:module_type< functor ( $i$ : $t$ ) -> $mt$ >> ] ]
-  ;
-  module_rec_declaration:
-    [ [ m = UIDENT; ":"; mt = module_type -> (m, mt) ] ]
   ;
   with_constr:
     [ [ "type"; i = mod_ident; tpl = LIST0 type_parameter; "="; t = ctyp ->
@@ -254,7 +249,7 @@ EXTEND
       [ e = SELF; "where"; lb = let_binding ->
           <:expr< let rec $list:[lb]$ in $e$ >> ]
     | ":=" NONA
-      [ e1 = SELF; ":="; e2 = SELF; [ -> () ] -> <:expr< $e1$ := $e2$ >> ]
+      [ e1 = SELF; ":="; e2 = SELF; dummy -> <:expr< $e1$ := $e2$ >> ]
     | "||" RIGHTA
       [ e1 = SELF; "||"; e2 = SELF -> <:expr< $e1$ || $e2$ >> ]
     | "&&" RIGHTA
@@ -309,19 +304,17 @@ EXTEND
       | s = FLOAT -> <:expr< $flo:s$ >>
       | s = STRING -> <:expr< $str:s$ >>
       | s = CHAR -> <:expr< $chr:s$ >>
-      | i = expr_ident -> i
+      | ids = expr_ident -> mkexprident loc ids
       | "["; "]" -> <:expr< [] >>
       | "["; el = LIST1 expr SEP ";"; last = cons_expr_opt; "]" ->
           mklistexp loc last el
       | "[|"; el = LIST0 expr SEP ";"; "|]" -> <:expr< [| $list:el$ |] >>
       | "{"; lel = LIST1 label_expr SEP ";"; "}" -> <:expr< { $list:lel$ } >>
-      | "{"; "("; e = SELF; ")"; "with"; lel = LIST1 label_expr SEP ";";
-        "}" ->
-          <:expr< { ($e$) with $list:lel$ } >>
+      | "{"; "("; e = SELF; ")"; "with"; lel = LIST1 label_expr SEP ";"; "}"
+        -> <:expr< { ($e$) with $list:lel$ } >>
       | "("; ")" -> <:expr< () >>
-      | "("; lloc = [ "let" -> loc ]; rf = OPT "rec";
-        l = LIST1 let_binding SEP "and"; "in"; el = sequence; ")" ->
-          let loc = merge_couple lloc loc in
+      | "("; "let"; rf = OPT "rec"; l = LIST1 let_binding SEP "and"; "in";
+        el = sequence; ")" ->
           <:expr< let $opt:o2b rf$ $list:l$ in $mksequence loc el$ >>
       | "("; e = SELF; ";"; el = sequence; ")" -> mksequence loc [e :: el]
       | "("; e = SELF; ":"; t = ctyp; ")" -> <:expr< ($e$ : $t$) >>
@@ -332,6 +325,9 @@ EXTEND
   cons_expr_opt:
     [ [ "::"; e = expr -> Some e
       | -> None ] ]
+  ;
+  dummy:
+    [ [ -> () ] ]
   ;
   sequence:
     [ [ "let"; rf = OPT "rec"; l = LIST1 let_binding SEP "and"; "in";
@@ -348,15 +344,16 @@ EXTEND
     [ RIGHTA
       [ p = ipatt; e = SELF -> <:expr< fun $p$ -> $e$ >>
       | "="; e = expr -> <:expr< $e$ >>
-      | ":"; t = ctyp; "="; e = expr -> <:expr< ($e$ : $t$) >>
+      | ":"; t = ctyp; "="; e = expr -> <:expr< ($e$ : $t$) >> 
       | ":>"; t = ctyp; "="; e = expr -> <:expr< ($e$ :> $t$) >> ] ]
   ;
   match_case:
-    [ [ p = patt_as; w = when_expr_opt; "->"; e = expr -> (p, w, e) ] ]
+    [ [ p = patt; aso = as_patt_opt; w = when_expr_opt; "->"; e = expr ->
+          mkmatchcase loc p aso (vala w) e ] ]
   ;
-  patt_as:
-    [ [ p = patt; "as"; p2 = patt -> <:patt< ($p$ as $p2$) >>
-      | p = patt -> p ] ]
+  as_patt_opt:
+    [ [ "as"; p = patt -> Some p
+      | -> None ] ]
   ;
   when_expr_opt:
     [ [ "when"; e = expr -> Some e
@@ -367,9 +364,13 @@ EXTEND
   ;
   expr_ident:
     [ RIGHTA
-      [ i = LIDENT -> <:expr< $lid:i$ >>
-      | i = UIDENT -> <:expr< $uid:i$ >>
-      | i = UIDENT; "."; j = SELF -> mkexprident loc i j ] ]
+      [ i = LIDENT -> [ <:expr< $lid:i$ >> ]
+      | i = UIDENT -> [ <:expr< $uid:i$ >> ]
+      | i = UIDENT; "."; j = SELF -> [ <:expr< $uid:i$ >> :: j ]
+      | i = UIDENT; "."; "{"; lab = LIDENT; "="; e = expr; ";";
+        lel = LIST0 label_expr SEP ";"; "}" ->
+          let p = <:patt< $uid:i$.$lid:lab$ >> in
+          [<:expr< { $list:[(p, e) :: lel]$ } >>] ] ]
   ;
   fun_def:
     [ RIGHTA
@@ -392,8 +393,8 @@ EXTEND
       | s = FLOAT -> <:patt< $flo:s$ >>
       | s = STRING -> <:patt< $str:s$ >>
       | s = CHAR -> <:patt< $chr:s$ >>
-      | "-"; s = INT -> mkuminpat loc <:patt< $int:s$ >>
-      | "-"; s = FLOAT -> mkuminpat loc <:patt< $flo:s$ >>
+      | "-"; s = INT -> <:patt< $int:neg_string s$ >>
+      | "-"; s = FLOAT -> <:patt< $flo:neg_string s$ >>
       | "["; "]" -> <:patt< [] >>
       | "["; pl = LIST1 patt SEP ";"; last = cons_patt_opt; "]" ->
           mklistpat loc last pl
@@ -415,15 +416,10 @@ EXTEND
     [ [ i = patt_label_ident; "="; p = patt -> (i, p) ] ]
   ;
   patt_label_ident:
-    [ LEFTA
-      [ p1 = SELF; "."; p2 = SELF -> <:patt< $p1$ . $p2$ >> ]
-    | "simple" RIGHTA
-      [ i = UIDENT -> <:patt< $uid:i$ >>
-      | i = LIDENT -> <:patt< $lid:i$ >> ] ]
+    [ [ i = LIDENT -> <:patt< $lid:i$ >> ] ]
   ;
   ipatt:
-    [ [ "{"; lpl = LIST1 label_ipatt SEP ";"; "}" ->
-          <:patt< { $list:lpl$ } >>
+    [ [ "{"; lpl = LIST1 label_ipatt SEP ";"; "}" -> <:patt< { $list:lpl$ } >>
       | "("; ")" -> <:patt< () >>
       | "("; p = SELF; ")" -> <:patt< $p$ >>
       | "("; p = SELF; ":"; t = ctyp; ")" -> <:patt< ($p$ : $t$) >>
@@ -439,21 +435,22 @@ EXTEND
   type_declaration:
     [ [ n = type_patt; tpl = LIST0 type_parameter; "="; tk = ctyp;
         cl = LIST0 constrain ->
-          IFDEF CAMLP5_4_02 THEN
-            {MLast.tdNam = n; MLast.tdPrm = tpl; MLast.tdPrv = False;
-             MLast.tdDef = tk; MLast.tdCon = cl}
+          IFDEF CAMLP5 THEN
+            {MLast.tdNam = n; MLast.tdPrm = vala tpl;
+             MLast.tdPrv = vala False; MLast.tdDef = tk;
+             MLast.tdCon = vala cl}
           ELSE (n, tpl, tk, cl) END ] ]
   ;
   type_patt:
-    [ [ n = LIDENT -> (loc, n) ] ]
+    [ [ n = LIDENT -> (loc, vala n) ] ]
   ;
   constrain:
     [ [ "constraint"; t1 = ctyp; "="; t2 = ctyp -> (t1, t2) ] ]
   ;
   type_parameter:
-    [ [ "'"; i = ident -> (i, (False, False))
-      | "+"; "'"; i = ident -> (i, (True, False))
-      | "-"; "'"; i = ident -> (i, (False, True)) ] ]
+    [ [ "'"; i = ident -> (vala i, (False, False))
+      | "+"; "'"; i = ident -> (vala i, (True, False))
+      | "-"; "'"; i = ident -> (vala i, (False, True)) ] ]
   ;
   ctyp:
     [ LEFTA
@@ -475,6 +472,9 @@ EXTEND
           <:ctyp< ( $list:[t::tl]$ ) >>
       | "("; t = SELF; ")" -> <:ctyp< $t$ >>
       | "["; cdl = LIST0 constructor_declaration SEP "|"; "]" ->
+         let cdl =
+           List.map (fun (loc, ci, cal) -> (loc, vala ci, vala cal)) cdl
+         in
           <:ctyp< [ $list:cdl$ ] >>
       | "{"; ldl = LIST1 label_declaration SEP ";"; "}" ->
           <:ctyp< { $list:ldl$ } >> ] ]
@@ -534,7 +534,8 @@ EXTEND
       | EOI -> ([], False) ] ]
   ;
   phrase:
-    [ [ "#"; n = LIDENT; dp = OPT expr; ";" -> <:str_item< # $n$ $opt:dp$ >>
+    [ [ "#"; n = LIDENT; dp = OPT expr; ";" ->
+          <:str_item< # $n$ $opt:dp$ >>
       | sti = str_item; ";" -> sti ] ]
   ;
   expr: LEVEL "simple"

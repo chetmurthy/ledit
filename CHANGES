@@ -1,13 +1,14 @@
 Ledit Version 1.16
 ------------------
 
+- [29 Dec 2007] Adapted for Camlp5 "strict" mode.
 - [16 Jul 2007] Fixed bug: parentheses did not balance in case of string.
   E.g. : (foijeoif) balance, but not ("foijfe").
 
 Ledit Version 1.15
 ------------------
 
-- [16 Jul 2007] Adapted for camlp5.
+- [16 Jul 2007] Adapted for Camlp5.
 
 Ledit Version 1.14
 ------------------
