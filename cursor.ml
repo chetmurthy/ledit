@@ -24,34 +24,34 @@ value create () = {before = []; current = None; after = []};
 value before c =
   match c.before with
   [ [] -> raise Failure
-  | [x :: l] -> (
+  | [x :: l] -> do {
       match c.current with
       [ Some y -> c.after := [y :: c.after]
       | _ -> () ];
       c.current := Some x;
       c.before := l
-    ) ]
+    } ]
 ;
 
 value after c =
   match c.current with
   [ None -> raise Failure
-  | Some y -> (
+  | Some y -> do {
       c.before := [y :: c.before];
       match c.after with
       [ [] -> c.current := None
-      | [x :: l] -> (c.current := Some x; c.after := l) ]
-    ) ]
+      | [x :: l] -> do { c.current := Some x; c.after := l } ]
+    } ]
 ;
 
 value is_last_line c = c.current = None;
 
-value insert c x = (
+value insert c x = do {
   match c.current with
   [ Some y -> c.before := [y :: c.before]
   | None -> () ];
   c.current := Some x
-);
+};
 
 value insert_last c x =
   match c.current with
@@ -79,11 +79,11 @@ value peek_last c =
 ;
 
 value rec goto_first c =
-  try while True do before c; done with [ Failure -> () ]
+  try while True do { before c } with [ Failure -> () ]
 ;
 
 value rec goto_last c =
-  try while True do after c; done with [ Failure -> () ]
+  try while True do { after c } with [ Failure -> () ]
 ;
 
 value get_all c =

@@ -4,7 +4,7 @@
 (*                                                                     *)
 (*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001-2007 Institut National de Recherche en Informatique *)
+(*  Copyright 2001-2008 Institut National de Recherche en Informatique *)
 (*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)

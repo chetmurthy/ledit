@@ -5,11 +5,11 @@ LIBDIR=/usr/local/lib
 MANDIR=/usr/local/man/man1
 OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
-CAMLP5=camlp5 -I ext pa_s.cmo pr_dump.cmo
+CAMLP5=camlp5r -I ext
 ZOFILES=cursor.cmo ledit.cmo go.cmo
 TARGET=ledit.out
 MKDIR=mkdir -p
-EXT=ext/pa_s.cmo ext/pa_def.cmo ext/pa_local.cmo
+EXT=ext/pa_def.cmo ext/pa_local.cmo
 
 all: $(EXT) $(TARGET) ledit.1
 

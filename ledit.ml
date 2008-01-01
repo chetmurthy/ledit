@@ -4,7 +4,7 @@
 (*                                                                     *)
 (*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001-2007 Institut National de Recherche en Informatique *)
+(*  Copyright 2001-2008 Institut National de Recherche en Informatique *)
 (*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
@@ -139,7 +139,7 @@ module A :
               if nbc < 0 then "?"
               else if nbc = 1 then String.make 1 c
               else
-                loop (String.make 1 c) (nbc - 1) where loop s n =
+                loop (String.make 1 c) (nbc - 1) where rec loop s n =
                   if n = 0 then s
                   else
                     let c = f () in
@@ -161,7 +161,7 @@ module A :
           else print_string c
         ;
         value prerr c = output_string stderr c;
-        value prerr_backsp c = (
+        value prerr_backsp c = do {
           if encoding.val = Utf_8 &&
              Char.code c.[0] >= 228 && Char.code c.[0] <= 233
           then
@@ -171,7 +171,7 @@ module A :
             output_char stderr '\b'
           else ();
           output_char stderr '\b';
-        );
+        };
       end;
     module String =
       struct
@@ -194,7 +194,7 @@ module A :
           match encoding.val with
           [ Ascii | Iso_8859 -> of_ascii s
           | Utf_8 ->
-              loop [] 0 where loop list i =
+              loop [] 0 where rec loop list i =
                 if i >= String.length s then Array.of_list (List.rev list)
                 else
                   let n = nbc s.[i] in
@@ -303,7 +303,7 @@ value unset_meta_as_escape () = meta_as_escape.val := False;
 value set_utf8 () = A.encoding.val := Utf_8;
 value set_ascii () = A.encoding.val := Ascii;
 
-value init_commands () = (
+value init_commands () = do {
   set_char_command (CTRL 'a') Beginning_of_line;
   set_char_command (CTRL 'e') End_of_line;
   set_char_command (CTRL 'f') Forward_char;
@@ -348,7 +348,7 @@ value init_commands () = (
   set_o_command 'B' Next_history;
   set_o_command 'C' Forward_char;
   set_o_command 'D' Backward_char;
-  if meta_as_escape.val then (
+  if meta_as_escape.val then do {
     set_char_command (META 'f') Forward_word;
     set_char_command (META 'b') Backward_word;
     set_char_command (META '<') Beginning_of_history;
@@ -360,9 +360,9 @@ value init_commands () = (
     set_char_command (META (CTRL 'h')) Backward_kill_word;
     set_char_command (META DEL) Backward_kill_word;
     set_char_command (META '/') Expand_abbrev;
-  )
+  }
   else ();
-);
+};
 
 type line =
   { buf : mutable A.String.t;
@@ -395,23 +395,23 @@ value put_bs st c = A.Char.prerr_backsp c;
 value put_space st = output_char stderr ' ';
 value put_newline st = prerr_endline "";
 value flush_out st = flush stderr;
-value bell () = (prerr_string "\007"; flush stderr);
+value bell () = do { prerr_string "\007"; flush stderr };
 
 value saved_tcio =
   try Unix.tcgetattr Unix.stdin with
-  [ Unix.Unix_error _ _ _ -> (
+  [ Unix.Unix_error _ _ _ -> do {
       Printf.eprintf "Error: standard input is not a terminal\n";
       flush stderr;
       exit 1
-    ) ]
+    } ]
 ;
 value edit_tcio = ref None;
 
-value set_edit () = (
+value set_edit () = do {
   let tcio =
     match edit_tcio.val with
     [ Some e -> e
-    | None -> (
+    | None -> do {
         let tcio = Unix.tcgetattr Unix.stdin in
         tcio.Unix.c_echo := False;
         tcio.Unix.c_icanon := False;
@@ -420,11 +420,11 @@ value set_edit () = (
         tcio.Unix.c_ixon := False;
         edit_tcio.val := Some tcio;
         tcio
-      ) ]
+      } ]
   in
   Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio;
   init_commands ();
-)
+}
 and unset_edit () = Unix.tcsetattr Unix.stdin Unix.TCSADRAIN saved_tcio;
 
 value line_set_nth_char line i c =
@@ -434,61 +434,61 @@ value line_set_nth_char line i c =
     A.String.set line.buf i c
 ;
 
-value line_to_nd st = (
-  let rec line_rec i = (
+value line_to_nd st = do {
+  let rec line_rec i = do {
     if i == st.line.cur then st.nd.cur := st.nd.len else ();
-    if i < st.line.len then (
+    if i < st.line.len then do {
       let c = A.String.get st.line.buf i in
       if c = A.Char.of_ascii '\t' then
-        for i = st.nd.len + 1 to (st.nd.len + 8) / 8 * 8 do
+        for i = st.nd.len + 1 to (st.nd.len + 8) / 8 * 8 do {
           line_set_nth_char st.nd st.nd.len (A.Char.of_ascii ' ');
           st.nd.len := st.nd.len + 1;
-        done
+        }
       else if
         match A.Char.ctrl_val c with
-        [ Some c -> (
+        [ Some c -> do {
             line_set_nth_char st.nd st.nd.len (A.Char.of_ascii '^');
             line_set_nth_char st.nd (st.nd.len + 1) c;
             st.nd.len := st.nd.len + 2;
             True
-          )
+          }
         | None -> False ]
       then ()
       else
         match A.encoding.val with
         [ Ascii ->
             match A.Char.not_ascii_val c with
-            [ Some (c1, c2, c3) -> (
+            [ Some (c1, c2, c3) -> do {
                 line_set_nth_char st.nd st.nd.len (A.Char.of_ascii '\\');
                 line_set_nth_char st.nd (st.nd.len + 1) c1;
                 line_set_nth_char st.nd (st.nd.len + 2) c2;
                 line_set_nth_char st.nd (st.nd.len + 3) c3;
                 st.nd.len := st.nd.len + 4;
-              )
-            | None -> (
+              }
+            | None -> do {
                 line_set_nth_char st.nd st.nd.len c;
                 st.nd.len := st.nd.len + 1
-              ) ]
+              } ]
         | Iso_8859 ->
             match A.Char.meta_ctrl_val c with
-            [ Some c -> (
+            [ Some c -> do {
                 line_set_nth_char st.nd st.nd.len (A.Char.of_ascii 'M');
                 line_set_nth_char st.nd (st.nd.len + 1) (A.Char.of_ascii '-');
                 line_set_nth_char st.nd (st.nd.len + 2) (A.Char.of_ascii '^');
                 line_set_nth_char st.nd (st.nd.len + 3) c;
                 st.nd.len := st.nd.len + 4
-              )
-            | None -> (
+              }
+            | None -> do {
                 line_set_nth_char st.nd st.nd.len c;
                 st.nd.len := st.nd.len + 1
-              ) ]
-        | Utf_8 -> (
+              } ]
+        | Utf_8 -> do {
             line_set_nth_char st.nd st.nd.len c;
             st.nd.len := st.nd.len + 1
-          ) ];
+          } ];
       line_rec (i + 1)
-    )
-    else if st.nd.len > max_len.val then (
+    }
+    else if st.nd.len > max_len.val then do {
       let shift =
         if st.nd.cur - st.shift >= 0 &&
            st.nd.cur - st.shift < max_len.val - 2
@@ -497,12 +497,12 @@ value line_to_nd st = (
         else if st.nd.cur < max_len.val - 3 then 0
         else st.nd.cur - max_len.val / 2
       in
-      for i = 0 to max_len.val - 3 do
+      for i = 0 to max_len.val - 3 do {
         let ni = i + shift in
         A.String.set st.nd.buf i
           (if ni < st.nd.len then A.String.get st.nd.buf ni
            else A.Char.of_ascii ' ');
-      done;
+      };
       A.String.set st.nd.buf (max_len.val - 2) (A.Char.of_ascii ' ');
       A.String.set st.nd.buf (max_len.val - 1)
         (if shift = 0 then A.Char.of_ascii '>'
@@ -511,75 +511,75 @@ value line_to_nd st = (
       st.nd.cur := st.nd.cur - shift;
       st.nd.len := max_len.val;
       st.shift := shift
-    )
+    }
     else st.shift := 0
-  )
+  }
   in
   st.nd.len := 0;
   line_rec 0
-);
+};
 
 value display st =
-  disp_rec 0 where disp_rec i =
-    if i < st.nd.len then (
+  disp_rec 0 where rec disp_rec i =
+    if i < st.nd.len then do {
       if i >= st.od.len ||
          A.String.get st.od.buf i <> A.String.get st.nd.buf i
-      then (
-        while i < st.od.cur do
+      then do {
+        while i < st.od.cur do {
           st.od.cur := st.od.cur - 1;
           put_bs st (A.String.get st.od.buf i);
-        done;
-        while st.od.cur < i do
+        };
+        while st.od.cur < i do {
           let c = A.String.get st.nd.buf st.od.cur in
           st.od.cur := st.od.cur + 1;
           A.Char.prerr c;
-        done;
+        };
         let c = A.String.get st.nd.buf i in
         line_set_nth_char st.od i c;
         st.od.cur := st.od.cur + 1;
         A.Char.prerr c
-      )
+      }
       else ();
       disp_rec (i + 1)
-    )
-    else (
-      if st.od.len > st.nd.len then (
-        while st.od.cur < st.od.len do
+    }
+    else do {
+      if st.od.len > st.nd.len then do {
+        while st.od.cur < st.od.len do {
           let c =
             if st.od.cur < st.nd.len then A.String.get st.nd.buf st.od.cur
             else A.Char.of_ascii ' '
           in
           A.Char.prerr c;
           st.od.cur := st.od.cur + 1;
-        done;
-        while st.od.cur > st.nd.len do
+        };
+        while st.od.cur > st.nd.len do {
           st.od.cur := st.od.cur - 1;
           put_bs st (A.String.get st.od.buf st.od.cur);
           put_space st;
           put_bs st (A.Char.of_ascii ' ');
-        done
-      )
+        }
+      }
       else ();
       st.od.len := st.nd.len;
-      while st.od.cur < st.nd.cur do
+      while st.od.cur < st.nd.cur do {
         A.Char.prerr (A.String.get st.nd.buf st.od.cur);
         st.od.cur := st.od.cur + 1;
-      done;
-      while st.od.cur > st.nd.cur do
+      };
+      while st.od.cur > st.nd.cur do {
         st.od.cur := st.od.cur - 1;
         put_bs st (A.String.get st.nd.buf st.od.cur);
-      done;
+      };
       flush_out st
-    )
+    }
 ;
 
-value update_output st = (line_to_nd st; display st);
+value update_output st = do {line_to_nd st; display st};
 
 value balance_paren st c =
   match A.Char.to_ascii c with
   [ Some (')' | ']' | '}' as c) ->
       let i =
-        find_lparen c (st.line.cur - 2) where find_lparen r i =
+        find_lparen c (st.line.cur - 2) where rec find_lparen r i =
           if i < 0 then i
           else
             match A.Char.to_ascii (A.String.get st.line.buf i) with
@@ -599,35 +599,35 @@ value balance_paren st c =
                 find_lparen r (skip_string (i - 1))
             | _ -> find_lparen r (i - 1) ]
       in
-      if i >= 0 then (
+      if i >= 0 then do {
         let c = st.line.cur in
         st.line.cur := i;
         update_output st;
         st.line.cur := c;
         let _ = Unix.select [Unix.stdin] [] [] 1.0 in
         ()
-      )
+      }
       else ()
   | Some _ | None -> () ]
 ;
 
-value delete_char st = (
+value delete_char st = do {
   st.line.len := st.line.len - 1;
-  for i = st.line.cur to st.line.len - 1 do
+  for i = st.line.cur to st.line.len - 1 do {
     A.String.set st.line.buf i (A.String.get st.line.buf (i + 1));
-  done
-);
+  }
+};
 
-value insert_char st x = (
-  for i = st.line.len downto st.line.cur + 1 do
+value insert_char st x = do {
+  for i = st.line.len downto st.line.cur + 1 do {
     line_set_nth_char st.line i (A.String.get st.line.buf (i - 1));
-  done;
+  };
   st.line.len := st.line.len + 1;
   line_set_nth_char st.line st.line.cur x
-);
+};
 
 value move_in_word buf e f g =
-  move_rec where move_rec i =
+  move_rec where rec move_rec i =
     if e i then i
     else if A.Char.is_word_char (A.String.get buf i) then f move_rec i
     else g move_rec i
@@ -656,31 +656,32 @@ value get_word_len st =
 value kill_word st =
   let i = st.line.cur in
   let i =
-    forward_move st.line (fun _ i -> i) (fun mv i -> (delete_char st; mv i))
-      i
+    forward_move st.line (fun _ i -> i)
+      (fun mv i -> do { delete_char st; mv i }) i
   in
-  forward_move st.line (fun mv i -> (delete_char st; mv i)) (fun _ i -> i) i
+  forward_move st.line (fun mv i -> do { delete_char st; mv i })
+    (fun _ i -> i) i
 ;
 
-value backward_kill_word st = (
+value backward_kill_word st = do {
   let k = backward_word st.line in
   let sh = st.line.cur - k in
   st.line.len := st.line.len - sh;
-  for i = k to st.line.len - 1 do
+  for i = k to st.line.len - 1 do {
     A.String.set st.line.buf i (A.String.get st.line.buf (i + sh));
-  done;
+  };
   k
-);
+};
 
 value capitalize_word st =
   let i = st.line.cur in
   let i0 = forward_move st.line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
   forward_move st.line
-    (fun mv i -> (
+    (fun mv i -> do {
        let f = if i == i0 then A.Char.uppercase else A.Char.lowercase in
        A.String.set st.line.buf i (f (A.String.get st.line.buf i));
        mv (i + 1)
-     ))
+     })
     (fun _ i -> i) i0
 ;
 
@@ -688,11 +689,11 @@ value upcase_word st =
   let i = st.line.cur in
   let i = forward_move st.line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
   forward_move st.line
-    (fun mv i -> (
+    (fun mv i -> do {
        let f = A.Char.uppercase in
        A.String.set st.line.buf i (f (A.String.get st.line.buf i));
        mv (i + 1)
-     ))
+     })
     (fun _ i -> i) i
 ;
 
@@ -700,38 +701,38 @@ value downcase_word st =
   let i = st.line.cur in
   let i = forward_move st.line (fun _ i -> i) (fun mv i -> mv (i + 1)) i in
   forward_move st.line
-    (fun mv i -> (
+    (fun mv i -> do {
        let f = A.Char.lowercase in
        A.String.set st.line.buf i (f (A.String.get st.line.buf i));
        mv (i + 1)
-     ))
+     })
     (fun _ i -> i) i
 ;
 
 value transpose_chars st =
-  if st.line.cur == st.line.len then (
+  if st.line.cur == st.line.len then do {
     let c = A.String.get st.line.buf (st.line.cur - 1) in
     A.String.set st.line.buf (st.line.cur - 1)
       (A.String.get st.line.buf (st.line.cur - 2));
     A.String.set st.line.buf (st.line.cur - 2) c;
-  )
-  else (
+  }
+  else do {
     let c = A.String.get st.line.buf st.line.cur in
     A.String.set st.line.buf st.line.cur
       (A.String.get st.line.buf (st.line.cur - 1));
     A.String.set st.line.buf (st.line.cur - 1) c;
     st.line.cur := st.line.cur + 1
-  )
+  }
 ;
 
-value set_line st str = (
+value set_line st str = do {
   st.line.len := 0;
   st.line.cur := 0;
-  for i = 0 to A.String.length str - 1 do
+  for i = 0 to A.String.length str - 1 do {
     insert_char st (A.String.get str i);
     st.line.cur := st.line.len;
-  done
-);
+  }
+};
 
 value save_if_last st =
   if Cursor.is_last_line st.history then
@@ -740,17 +741,17 @@ value save_if_last st =
 ;
 
 value previous_history st =
-  try (
+  try do {
     save_if_last st;
     Cursor.before st.history;
     set_line st (Cursor.peek st.history)
-  )
+  }
   with
   [ Cursor.Failure -> bell () ]
 ;
 
 value next_history st =
-  try (Cursor.after st.history; set_line st (Cursor.peek st.history)) with
+  try do {Cursor.after st.history; set_line st (Cursor.peek st.history)} with
   [ Cursor.Failure -> set_line st st.last_line ]
 ;
 
@@ -759,36 +760,36 @@ value reverse_search_history st =
     List.fold_left A.String.concat (A.String.of_ascii "(reverse-i-search)'")
       [str; A.String.of_ascii "': "]
   in
-  let make_line str fstr = (
+  let make_line str fstr = do {
     st.line.cur := 0;
     st.line.len := 0;
     let len = A.String.length str in
-    for i = 0 to len - 1 do
+    for i = 0 to len - 1 do {
       insert_char st (A.String.get str i);
       st.line.cur := st.line.cur + 1;
-    done;
+    };
     let len = A.String.length fstr in
-    for i = 0 to len - 1 do
+    for i = 0 to len - 1 do {
       insert_char st (A.String.get fstr i);
       st.line.cur := st.line.cur + 1;
-    done
-  )
+    }
+  }
   in
   let initial_str = A.String.sub st.line.buf 0 st.line.len in
   let rec find_line (cnt, fstr) str =
-    find_rec 0 0 where find_rec ifstr istr =
+    find_rec 0 0 where rec find_rec ifstr istr =
       if istr == A.String.length str then (cnt, fstr)
       else if ifstr == A.String.length fstr then
-        if try (Cursor.before st.history; True) with
+        if try do {Cursor.before st.history; True} with
            [ Cursor.Failure -> False ]
         then
           find_line (cnt + 1, Cursor.peek st.history) str
-        else (bell (); (cnt, fstr))
+        else do {bell (); (cnt, fstr)}
       else if A.String.get str istr <> A.String.get fstr ifstr then
         find_rec (ifstr + 1) 0
       else find_rec (ifstr + 1) (istr + 1)
   in
-  let rec incr_search (cnt, fstr) str = (
+  let rec incr_search (cnt, fstr) str = do {
     let q = question str in
     make_line q fstr;
     st.line.cur := A.String.length q - 3;
@@ -801,53 +802,53 @@ value reverse_search_history st =
         incr_search (find_line (cnt, fstr) str) str
     | Backward_delete_char ->
         if A.String.length str == 0 then incr_search (cnt, fstr) str
-        else (
+        else do {
           let str = A.String.sub str 0 (A.String.length str - 1) in
-          for i = 1 to cnt do Cursor.after st.history; done;
+          for i = 1 to cnt do { Cursor.after st.history };
           incr_search (find_line (0, initial_str) str) str
-        )
-    | Abort -> (
-        for i = 1 to cnt do Cursor.after st.history; done;
+        }
+    | Abort -> do {
+        for i = 1 to cnt do { Cursor.after st.history };
         bell ();
         initial_str
-      )
+      }
     | Reverse_search_history ->
         let (cnt, fstr) =
-          try (
+          try do {
             Cursor.before st.history;
             find_line (cnt + 1, Cursor.peek st.history) str
-          )
+          }
           with
-          [ Cursor.Failure -> (bell (); (cnt, initial_str)) ]
+          [ Cursor.Failure -> do {bell (); (cnt, initial_str)} ]
         in
         incr_search (cnt, fstr) str
     | _ -> fstr ]
-  )
+  }
   in
   let fstr = incr_search (0, initial_str) A.String.empty in
   make_line A.String.empty fstr
 ;
 
-value rec beginning_of_history st = (
+value rec beginning_of_history st = do {
   save_if_last st;
   Cursor.goto_first st.history;
   try set_line st (Cursor.peek st.history) with [ Cursor.Failure -> bell () ]
-);
+};
 
-value rec end_of_history st = (
+value rec end_of_history st = do {
   Cursor.goto_last st.history;
   set_line st st.last_line
-);
+};
 
 value rec back_search st ad hist rpos =
   match hist with
-  [ [] -> (
-      for i = 0 to A.String.length ad.abbr - 1 do
+  [ [] -> do {
+      for i = 0 to A.String.length ad.abbr - 1 do {
         insert_char st (A.String.get ad.abbr i);
         st.line.cur := st.line.cur + 1;
-      done;
+      };
       bell ()
-    )
+    }
   | [l :: ll] ->
       let i = A.String.length l - rpos in
       if i <= 0 then back_search st ad ll 0
@@ -860,21 +861,21 @@ value rec back_search st ad hist rpos =
           let f = A.String.sub l i (i1 - i) in
           if List.mem f ad.found then
             back_search st ad [l :: ll] (A.String.length l - i)
-          else (
+          else do {
             let ad =
               {hist = [l :: ll]; rpos = A.String.length l - i1; clen = i1 - i;
                abbr = ad.abbr; found = [f :: ad.found]}
             in
             st.abbrev := Some ad;
-            for i = 0 to A.String.length f - 1 do
+            for i = 0 to A.String.length f - 1 do {
               insert_char st (A.String.get f i);
               st.line.cur := st.line.cur + 1;
-            done
-          )
+            }
+          }
         else back_search st ad [l :: ll] (A.String.length l - i) ]
 ;
 
-value expand_abbrev st abbrev = (
+value expand_abbrev st abbrev = do {
   let ad =
     match abbrev with
     [ Some x -> x
@@ -888,182 +889,186 @@ value expand_abbrev st abbrev = (
         {hist = [line_beg :: Cursor.get_all st.history @ [line_end]];
          rpos = 0; clen = len; abbr = abbr; found = [abbr]} ]
   in
-  for i = 1 to ad.clen do
+  for i = 1 to ad.clen do {
     st.line.cur := st.line.cur - 1;
     delete_char st;
-  done;
+  };
   back_search st ad ad.hist ad.rpos;
   update_output st
-);
+};
 
-value rec update_line st comm c = (
+value rec update_line st comm c = do {
   let abbrev = st.abbrev in
   st.abbrev := None;
   match comm with
   [ Beginning_of_line ->
-      if st.line.cur > 0 then (st.line.cur := 0; update_output st) else ()
+      if st.line.cur > 0 then do {st.line.cur := 0; update_output st} else ()
   | End_of_line ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := st.line.len;
         update_output st
-      )
+      }
       else ()
   | Forward_char ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := st.line.cur + 1;
         update_output st
-      )
+      }
       else ()
   | Backward_char ->
-      if st.line.cur > 0 then (
+      if st.line.cur > 0 then do {
         st.line.cur := st.line.cur - 1;
         update_output st
-      )
+      }
       else ()
   | Forward_word ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := forward_word st.line;
         update_output st
-      )
+      }
       else ()
   | Backward_word ->
-      if st.line.cur > 0 then (
+      if st.line.cur > 0 then do {
         st.line.cur := backward_word st.line;
         update_output st
-      )
+      }
       else ()
   | Capitalize_word ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := capitalize_word st;
         update_output st
-      )
+      }
       else ()
   | Upcase_word ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := upcase_word st;
         update_output st
-      )
+      }
       else ()
   | Downcase_word ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := downcase_word st;
         update_output st
-      )
+      }
       else ()
-  | Previous_history -> (previous_history st; update_output st)
-  | Next_history -> (next_history st; update_output st)
-  | Beginning_of_history -> (beginning_of_history st; update_output st)
-  | End_of_history -> (end_of_history st; update_output st)
-  | Reverse_search_history -> (reverse_search_history st; update_output st)
-  | Delete_char -> (
+  | Previous_history -> do {previous_history st; update_output st}
+  | Next_history -> do {next_history st; update_output st}
+  | Beginning_of_history -> do {beginning_of_history st; update_output st}
+  | End_of_history -> do {end_of_history st; update_output st}
+  | Reverse_search_history -> do {reverse_search_history st; update_output st}
+  | Delete_char -> do {
       if st.line.len = 0 then raise End_of_file else ();
-      if st.line.cur < st.line.len then (delete_char st; update_output st)
+      if st.line.cur < st.line.len then do {delete_char st; update_output st}
       else ()
-    )
+    }
   | Backward_delete_char ->
-      if st.line.cur > 0 then (
+      if st.line.cur > 0 then do {
         st.line.cur := st.line.cur - 1;
         delete_char st;
         update_output st
-      )
+      }
       else ()
   | Transpose_chars ->
-      if st.line.len > 1 && st.line.cur > 0 then (
+      if st.line.len > 1 && st.line.cur > 0 then do {
         transpose_chars st;
         update_output st
-      )
+      }
       else ()
   | Kill_word ->
-      if st.line.cur < st.line.len then (
+      if st.line.cur < st.line.len then do {
         st.line.cur := kill_word st;
         update_output st
-      )
+      }
       else ()
   | Backward_kill_word ->
-      if st.line.cur > 0 then (
+      if st.line.cur > 0 then do {
         st.line.cur := backward_kill_word st;
         update_output st
-      )
+      }
       else ()
   | Quoted_insert -> st.istate := Quote
   | Start_escape_sequence -> st.istate := Escape
   | Start_csi_sequence -> st.istate := CSI
   | Start_o_sequence -> st.istate := Oseq
-  | Self_insert -> (
+  | Self_insert -> do {
       insert_char st c;
       st.line.cur := st.line.cur + 1;
       balance_paren st c;
       update_output st
-    )
+    }
   | Expand_abbrev -> expand_abbrev st abbrev
-  | Refresh_line -> (
+  | Refresh_line -> do {
       put_newline st;
       st.od.cur := 0;
       st.od.len := 0;
       update_output st
-    )
-  | Kill_line -> (
+    }
+  | Kill_line -> do {
       st.cut :=
         A.String.sub st.line.buf st.line.cur (st.line.len - st.line.cur);
-      if st.line.len > st.line.cur then (
+      if st.line.len > st.line.cur then do {
         st.line.len := st.line.cur;
         update_output st
-      )
+      }
       else ()
-    )
+    }
   | Unix_line_discard ->
-      if st.line.cur > 0 then (
+      if st.line.cur > 0 then do {
         st.line.cur := 0;
         st.line.len := 0;
         update_output st
-      )
+      }
       else ()
   | Yank ->
-      if A.String.length st.cut > 0 then (
-        for i = 0 to A.String.length st.cut - 1 do
+      if A.String.length st.cut > 0 then do {
+        for i = 0 to A.String.length st.cut - 1 do {
           insert_char st (A.String.get st.cut i);
           st.line.cur := st.line.cur + 1;
-        done;
+        };
         update_output st
-      )
+      }
       else ()
   | Abort -> bell ()
-  | Interrupt -> (
-      if st.line.cur > 0 then (
+  | Interrupt -> do {
+      if st.line.cur > 0 then do {
         st.line.cur := 0;
         st.line.len := 0;
         update_output st
-      )
+      }
       else ();
       match son.val with
       [ Some pid -> Unix.kill pid Sys.sigint
       | _ -> () ]
-    )
-  | Suspend -> (
+    }
+  | Suspend -> do {
       unset_edit ();
       Unix.kill (Unix.getpid ()) Sys.sigtstp;
       set_edit ();
       st.od.cur := 0;
       st.od.len := 0;
       update_output st
-    )
+    }
   | Quit ->
       match son.val with
       [ Some pid -> Unix.kill pid Sys.sigquit
       | _ -> () ]
   | _ -> () ]
-);
+};
 
 value save_history st line =
   let last_line =
     try Cursor.peek_last st.history with [ Cursor.Failure -> A.String.empty ]
   in
-  if line <> last_line && line <> A.String.empty then (
+  if line <> last_line && line <> A.String.empty then do {
     Cursor.insert_last st.history line;
     match st.histfile with
-    [ Some fdo -> (A.String.output fdo line; output_char fdo '\n'; flush fdo)
+    [ Some fdo -> do {
+        A.String.output fdo line;
+        output_char fdo '\n';
+        flush fdo
+      }
     | None -> () ]
-  )
+  }
   else ()
 ;
 
@@ -1075,8 +1080,8 @@ local st =
    cut = A.String.empty; last_comm = Accept_line; histfile = None;
    history = Cursor.create (); abbrev = None}
 in
-value edit_line () = (
-  let rec edit_loop () = (
+value edit_line () = do {
+  let rec edit_loop () = do {
     let c = A.Char.read () in
     let comm =
       match st.istate with
@@ -1089,7 +1094,7 @@ value edit_line () = (
     st.istate := Normal;
     st.last_comm := comm;
     match comm with
-    [ Accept_line | Operate_and_get_next -> (
+    [ Accept_line | Operate_and_get_next -> do {
         let v_max_len = max_len.val in
         max_len.val := 10000;
         update_output st;
@@ -1099,37 +1104,37 @@ value edit_line () = (
         st.abbrev := None;
         save_history st line;
         line
-      )
-    | _ -> (update_line st comm c; edit_loop ()) ]
-  )
+      }
+    | _ -> do {update_line st comm c; edit_loop ()} ]
+  }
   in
   st.od.len := 0;
   st.od.cur := 0;
   st.line.len := 0;
   st.line.cur := 0;
   if st.last_comm == Operate_and_get_next then
-    try (
+    try do {
       Cursor.after st.history;
       set_line st (Cursor.peek st.history);
       update_output st
-    )
+    }
     with
     [ Cursor.Failure -> () ]
   else Cursor.goto_last st.history;
   edit_loop ()
-)
-and open_histfile trunc file = (
+}
+and open_histfile trunc file = do {
   if not trunc then
     match try Some (open_in file) with _ -> None with
-    [ Some fi -> (
+    [ Some fi -> do {
         try
-          while True do
+          while True do {
             Cursor.insert st.history (A.String.input_line fi);
-          done
+          }
         with
         [ End_of_file -> () ];
         close_in fi
-      )
+      }
     | _ -> () ]
   else ();
   let fd =
@@ -1141,7 +1146,7 @@ and open_histfile trunc file = (
   let fdo = Unix.out_channel_of_descr fd in
   if not trunc then seek_out fdo (out_channel_length fdo) else ();
   st.histfile := Some fdo
-)
+}
 and close_histfile () =
   match st.histfile with
   [ Some fdo -> close_out fdo
@@ -1156,16 +1161,20 @@ value (set_prompt, get_prompt, input_a_char) =
   and get_prompt () = prompt.val
   and input_a_char ic =
     if ic != stdin then A.Char.input ic
-    else (
-      if ind.val > A.String.length buff.val then (
+    else do {
+      if ind.val > A.String.length buff.val then do {
         prerr_string prompt.val;
         flush stderr;
-        try (set_edit (); buff.val := edit_line (); unset_edit ()) with e -> (
+        try do {
+          set_edit ();
+          buff.val := edit_line ();
+          unset_edit ()}
+        with e -> do {
           unset_edit ();
           raise e
-        );
+        };
         ind.val := 0
-      )
+      }
       else ();
       let c =
         if ind.val == A.String.length buff.val then
@@ -1175,7 +1184,7 @@ value (set_prompt, get_prompt, input_a_char) =
       in
       ind.val := ind.val + 1;
       c
-    )
+    }
   in
   (set_prompt, get_prompt, input_a_char)
 ;
