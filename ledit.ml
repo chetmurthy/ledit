@@ -374,14 +374,17 @@ value init_commands () = do {
   set_csi_command 'B' Next_history;
   set_csi_command 'C' Forward_char;
   set_csi_command 'D' Backward_char;
+  set_csi_command 'F' End_of_line;
+  set_csi_command 'H' Beginning_of_line;
+  set_csi_number_tilde_command 3 Delete_char;
   set_csi_number_tilde_command 5 Previous_history;
   set_csi_number_tilde_command 6 Next_history;
   set_o_command 'A' Previous_history;
   set_o_command 'B' Next_history;
   set_o_command 'C' Forward_char;
   set_o_command 'D' Backward_char;
-  set_o_command 'F' End_of_history;
-  set_o_command 'H' Beginning_of_history;
+  set_o_command 'F' End_of_line;
+  set_o_command 'H' Beginning_of_line;
   if meta_as_escape.val then do {
     set_char_command (META 'f') Forward_word;
     set_char_command (META 'b') Backward_word;
