@@ -6,7 +6,7 @@ Ledit Version 1.17
     Page Up (esc [ 5 ~) = Previous_history
     Page Down (esc [ 6 ~) = Next_history
     Home (esc O H ou esc [ H) = Beginning_of_line
-    End (esc O F ou esc [ F) = End_of_end
+    End (esc O F ou esc [ F) = End_of_line
 - [01 Jan 2008] (internal) changed the code which was in 'special syntax'
   into revised syntax.
 
