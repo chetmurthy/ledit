@@ -231,6 +231,7 @@ type command =
   | Beginning_of_history
   | Beginning_of_line
   | Capitalize_word
+  | Csi_number_sequence of int
   | Delete_char
   | Downcase_word
   | End_of_history
@@ -259,7 +260,7 @@ type command =
   | Yank ]
 ;
 
-type istate = [ Normal | Quote | Escape | CSI | Oseq ];
+type istate = [ Normal | Quote | Escape | CSI | CSI_number of int | Oseq ];
 
 value (command_of_char, set_char_command) =
   let command_vect = Array.create 256 Self_insert in
@@ -283,9 +284,38 @@ value (csi_command_of_char, set_csi_command) =
   let command_vect = Array.create 256 Abort in
   (fun c ->
      match A.Char.to_ascii c with
-     [ Some c -> command_vect.(Char.code c)
+     [ Some c ->
+         match c with
+         [ '0'..'9' -> Csi_number_sequence (Char.code c - Char.code '0')
+         | _ -> command_vect.(Char.code c) ]
      | None -> Abort ],
    fun c comm -> command_vect.(Char.code c) := comm)
+;
+
+value (csi_number_command_of_char, set_csi_number_tilde_command) =
+  let tilde_command_vect = ref [| |] in
+  (fun n c ->
+     match A.Char.to_ascii c with
+     [ Some c ->
+         match c with
+         [ '0'..'9' ->
+             Csi_number_sequence (10 * n + Char.code c - Char.code '0')
+         | '~' ->
+             if n < Array.length tilde_command_vect.val then
+               tilde_command_vect.val.(n)
+             else Abort
+         | _ ->
+             Abort ]
+     | None -> Abort ],
+   fun n comm -> do {
+     let len = Array.length tilde_command_vect.val in
+     if n >= len then
+       tilde_command_vect.val :=
+         Array.append tilde_command_vect.val
+          (Array.create (max (2 * len + 1) (n - len + 1)) Abort)
+     else ();
+     tilde_command_vect.val.(n) := comm
+   })
 ;
 
 value (o_command_of_char, set_o_command) =
@@ -344,10 +374,14 @@ value init_commands () = do {
   set_csi_command 'B' Next_history;
   set_csi_command 'C' Forward_char;
   set_csi_command 'D' Backward_char;
+  set_csi_number_tilde_command 5 Previous_history;
+  set_csi_number_tilde_command 6 Next_history;
   set_o_command 'A' Previous_history;
   set_o_command 'B' Next_history;
   set_o_command 'C' Forward_char;
   set_o_command 'D' Backward_char;
+  set_o_command 'F' End_of_history;
+  set_o_command 'H' Beginning_of_history;
   if meta_as_escape.val then do {
     set_char_command (META 'f') Forward_word;
     set_char_command (META 'b') Backward_word;
@@ -990,6 +1024,7 @@ value rec update_line st comm c = do {
   | Start_escape_sequence -> st.istate := Escape
   | Start_csi_sequence -> st.istate := CSI
   | Start_o_sequence -> st.istate := Oseq
+  | Csi_number_sequence n -> st.istate := CSI_number n
   | Self_insert -> do {
       insert_char st c;
       st.line.cur := st.line.cur + 1;
@@ -1089,6 +1124,7 @@ value edit_line () = do {
       | Normal -> command_of_char c
       | Escape -> escape_command_of_char c
       | CSI -> csi_command_of_char c
+      | CSI_number n -> csi_number_command_of_char n c
       | Oseq -> o_command_of_char c ]
     in
     st.istate := Normal;

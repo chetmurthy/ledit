@@ -1,8 +1,13 @@
 Ledit Version 1.17
 ------------------
 
-- [01 Jan 2008] (internal) rewritten in revised syntax instead of 'special
-  syntax'.
+- [15 Jan 2008] Added sequences:
+    esc [ 5 ~ (Page Up) = Previous_history
+    esc [ 6 ~ (Page Down) = Next_history
+    esc O F (End) = End_of_history
+    esc O H (Home) = End_of_history
+- [01 Jan 2008] (internal) changed the code which was in 'special syntax'
+  into revised syntax.
 
 Ledit Version 1.16
 ------------------
