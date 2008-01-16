@@ -23,3 +23,5 @@ value set_son_pid : int -> unit;
 value unset_meta_as_escape : unit -> unit;
 value set_utf8 : unit -> unit;
 value set_ascii : unit -> unit;
+
+value trace_sequences : ref bool;

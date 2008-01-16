@@ -231,8 +231,8 @@ type command =
   | Beginning_of_history
   | Beginning_of_line
   | Capitalize_word
-  | Csi_number_sequence of int
   | Delete_char
+  | Delete_char_or_end_of_file
   | Downcase_word
   | End_of_history
   | End_of_line
@@ -250,7 +250,7 @@ type command =
   | Refresh_line
   | Reverse_search_history
   | Self_insert
-  | Start_csi_sequence
+  | Start_csi_sequence of string
   | Start_escape_sequence
   | Start_o_sequence
   | Suspend
@@ -260,7 +260,7 @@ type command =
   | Yank ]
 ;
 
-type istate = [ Normal | Quote | Escape | CSI | CSI_number of int | Oseq ];
+type istate = [ Normal | Quote | Escape | CSI of string | Oseq ];
 
 value (command_of_char, set_char_command) =
   let command_vect = Array.create 256 Self_insert in
@@ -281,41 +281,18 @@ value (escape_command_of_char, set_escape_command) =
 ;
 
 value (csi_command_of_char, set_csi_command) =
-  let command_vect = Array.create 256 Abort in
-  (fun c ->
+  let command_vect = Array.init 256 (fun _ -> Hashtbl.create 1) in
+  (fun s c ->
      match A.Char.to_ascii c with
      [ Some c ->
          match c with
-         [ '0'..'9' -> Csi_number_sequence (Char.code c - Char.code '0')
-         | _ -> command_vect.(Char.code c) ]
-     | None -> Abort ],
-   fun c comm -> command_vect.(Char.code c) := comm)
-;
-
-value (csi_number_command_of_char, set_csi_number_tilde_command) =
-  let tilde_command_vect = ref [| |] in
-  (fun n c ->
-     match A.Char.to_ascii c with
-     [ Some c ->
-         match c with
-         [ '0'..'9' ->
-             Csi_number_sequence (10 * n + Char.code c - Char.code '0')
-         | '~' ->
-             if n < Array.length tilde_command_vect.val then
-               tilde_command_vect.val.(n)
-             else Abort
+         [ '0'..'9' | ';' -> Start_csi_sequence (s ^ String.make 1 c)
          | _ ->
-             Abort ]
+             try Hashtbl.find command_vect.(Char.code c) s with
+             [ Not_found -> Abort ] ]
      | None -> Abort ],
-   fun n comm -> do {
-     let len = Array.length tilde_command_vect.val in
-     if n >= len then
-       tilde_command_vect.val :=
-         Array.append tilde_command_vect.val
-          (Array.create (max (2 * len + 1) (n - len + 1)) Abort)
-     else ();
-     tilde_command_vect.val.(n) := comm
-   })
+   fun s c comm ->
+     Hashtbl.add command_vect.(Char.code c) s comm)
 ;
 
 value (o_command_of_char, set_o_command) =
@@ -341,7 +318,7 @@ value init_commands () = do {
   set_char_command (CTRL 'p') Previous_history;
   set_char_command (CTRL 'n') Next_history;
   set_char_command (CTRL 'r') Reverse_search_history;
-  set_char_command (CTRL 'd') Delete_char;
+  set_char_command (CTRL 'd') Delete_char_or_end_of_file;
   set_char_command (CTRL 'h') Backward_delete_char;
   set_char_command DEL Backward_delete_char;
   set_char_command (CTRL 't') Transpose_chars;
@@ -367,24 +344,31 @@ value init_commands () = do {
   set_escape_command 'd' Kill_word;
   set_escape_command (CTRL 'h') Backward_kill_word;
   set_escape_command DEL Backward_kill_word;
-  set_escape_command '[' Start_csi_sequence;
+  set_escape_command '[' (Start_csi_sequence "");
   set_escape_command 'O' Start_o_sequence;
   set_escape_command '/' Expand_abbrev;
-  set_csi_command 'A' Previous_history;
-  set_csi_command 'B' Next_history;
-  set_csi_command 'C' Forward_char;
-  set_csi_command 'D' Backward_char;
-  set_csi_command 'F' End_of_line;
-  set_csi_command 'H' Beginning_of_line;
-  set_csi_number_tilde_command 3 Delete_char;
-  set_csi_number_tilde_command 5 Previous_history;
-  set_csi_number_tilde_command 6 Next_history;
+
+  set_csi_command "" 'A' Previous_history;	(* Up arrow *)
+  set_csi_command "" 'B' Next_history;		(* Down arrow *)
+  set_csi_command "" 'C' Forward_char;		(* Left arrow *)
+  set_csi_command "" 'D' Backward_char;		(* Right arrow *)
+
+  set_csi_command "3" '~' Delete_char;		(* Delete *)
+  set_csi_command "" 'H' Beginning_of_line;	(* Home *)
+  set_csi_command "" 'F' End_of_line;		(* End *)
+  set_csi_command "5" '~' Previous_history;	(* Page Up *)
+  set_csi_command "6" '~' Next_history;		(* Page Down *)
+
+  set_csi_command "2" 'H' Beginning_of_history;	(* Shift Home *)
+  set_csi_command "2" 'F' End_of_history;	(* Shift End *)
+
   set_o_command 'A' Previous_history;
   set_o_command 'B' Next_history;
   set_o_command 'C' Forward_char;
   set_o_command 'D' Backward_char;
   set_o_command 'F' End_of_line;
   set_o_command 'H' Beginning_of_line;
+
   if meta_as_escape.val then do {
     set_char_command (META 'f') Forward_word;
     set_char_command (META 'b') Backward_word;
@@ -993,8 +977,12 @@ value rec update_line st comm c = do {
   | Beginning_of_history -> do {beginning_of_history st; update_output st}
   | End_of_history -> do {end_of_history st; update_output st}
   | Reverse_search_history -> do {reverse_search_history st; update_output st}
-  | Delete_char -> do {
+  | Delete_char_or_end_of_file -> do {
       if st.line.len = 0 then raise End_of_file else ();
+      if st.line.cur < st.line.len then do {delete_char st; update_output st}
+      else ()
+    }
+  | Delete_char -> do {
       if st.line.cur < st.line.len then do {delete_char st; update_output st}
       else ()
     }
@@ -1025,9 +1013,8 @@ value rec update_line st comm c = do {
       else ()
   | Quoted_insert -> st.istate := Quote
   | Start_escape_sequence -> st.istate := Escape
-  | Start_csi_sequence -> st.istate := CSI
+  | Start_csi_sequence s -> st.istate := CSI s
   | Start_o_sequence -> st.istate := Oseq
-  | Csi_number_sequence n -> st.istate := CSI_number n
   | Self_insert -> do {
       insert_char st c;
       st.line.cur := st.line.cur + 1;
@@ -1110,6 +1097,8 @@ value save_history st line =
   else ()
 ;
 
+value trace_sequences = ref False;
+
 local st =
   {od = {buf = A.String.empty; cur = 0; len = 0};
    nd = {buf = A.String.empty; cur = 0; len = 0};
@@ -1121,13 +1110,20 @@ in
 value edit_line () = do {
   let rec edit_loop () = do {
     let c = A.Char.read () in
+    if trace_sequences.val then do {
+      put_newline st;
+      Printf.eprintf "<%s>\n" (String.escaped (A.Char.to_string c));
+      st.od.cur := 0;
+      st.od.len := 0;
+      update_output st
+    }
+    else ();
     let comm =
       match st.istate with
       [ Quote -> Self_insert
       | Normal -> command_of_char c
       | Escape -> escape_command_of_char c
-      | CSI -> csi_command_of_char c
-      | CSI_number n -> csi_number_command_of_char n c
+      | CSI s -> csi_command_of_char s c
       | Oseq -> o_command_of_char c ]
     in
     st.istate := Normal;
