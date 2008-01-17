@@ -250,9 +250,7 @@ type command =
   | Refresh_line
   | Reverse_search_history
   | Self_insert
-  | Start_csi_sequence of string
-  | Start_escape_sequence
-  | Start_o_sequence
+  | Sequence of string
   | Suspend
   | Transpose_chars
   | Unix_line_discard
@@ -260,49 +258,7 @@ type command =
   | Yank ]
 ;
 
-type istate = [ Normal | Quote | Escape | CSI of string | Oseq ];
-
-value (command_of_char, set_char_command) =
-  let command_vect = Array.create 256 Self_insert in
-  (fun c ->
-     match A.Char.to_ascii c with
-     [ Some c -> command_vect.(Char.code c)
-     | None -> Self_insert ],
-   fun c comm -> command_vect.(Char.code c) := comm)
-;
-
-value (escape_command_of_char, set_escape_command) =
-  let command_vect = Array.create 256 Abort in
-  (fun c ->
-     match A.Char.to_ascii c with
-     [ Some c -> command_vect.(Char.code c)
-     | None -> Abort ],
-   fun c comm -> command_vect.(Char.code c) := comm)
-;
-
-value (csi_command_of_char, set_csi_command) =
-  let command_vect = Array.init 256 (fun _ -> Hashtbl.create 1) in
-  (fun s c ->
-     match A.Char.to_ascii c with
-     [ Some c ->
-         match c with
-         [ '0'..'9' | ';' -> Start_csi_sequence (s ^ String.make 1 c)
-         | _ ->
-             try Hashtbl.find command_vect.(Char.code c) s with
-             [ Not_found -> Abort ] ]
-     | None -> Abort ],
-   fun s c comm ->
-     Hashtbl.add command_vect.(Char.code c) s comm)
-;
-
-value (o_command_of_char, set_o_command) =
-  let command_vect = Array.create 256 Abort in
-  (fun c ->
-     match A.Char.to_ascii c with
-     [ Some c -> command_vect.(Char.code c)
-     | None -> Abort ],
-   fun c comm -> command_vect.(Char.code c) := comm)
-;
+type istate = [ Normal of string | Quote ];
 
 value meta_as_escape = ref True;
 value unset_meta_as_escape () = meta_as_escape.val := False;
@@ -310,77 +266,213 @@ value unset_meta_as_escape () = meta_as_escape.val := False;
 value set_utf8 () = A.encoding.val := Utf_8;
 value set_ascii () = A.encoding.val := Ascii;
 
+type comm_tree =
+  [ CT_tree of list comm_node
+  | CT_comm of command
+  | CT_none ]
+and comm_node = { char : char; son : comm_tree };
+
+value hex_value c =
+  match c with
+  [ '0'..'9' -> Some (Char.code c - Char.code '0')
+  | 'a'..'f' -> Some (Char.code c - Char.code 'a' + 10)
+  | 'A'..'F' -> Some (Char.code c - Char.code 'A' + 10)
+  | _ -> None ]
+;
+
+value oct_value c =
+  match c with
+  [ '0'..'7' -> Some (Char.code c - Char.code '0')
+  | _ -> None ]
+;
+
+value rec next_char s i =
+  if i < String.length s then
+    let (c, i) =
+      if s.[i] = '\\' then
+        if i + 1 < String.length s then
+          match s.[i+1] with
+          [ 'C' ->
+              if i + 3 < String.length s && s.[i+2] = '-' then
+                let c = s.[i+3] in
+                if Char.code c >= 64 && Char.code c <= 95 then
+                  (Char.chr (Char.code c - 64), i + 4)
+                else if Char.code c >= 96 && Char.code c <= 127 then
+                  (Char.chr (Char.code c - 96), i + 4)
+                else
+                  (s.[i], i + 1)
+              else (s.[i], i + 1)
+          | 'M' ->
+              if i + 2 < String.length s && s.[i+2] = '-' then
+                match next_char s (i + 3) with
+                [ Some (c, j) ->
+                    if Char.code c < 128 then
+                      (Char.chr (Char.code c + 128), j)
+                    else
+                      (s.[i], i + 1)
+                | None -> (s.[i], i + 1) ]
+              else (s.[i], i + 1)
+          | 'e' -> ('\027', i + 2)
+          | '\\' -> ('\\', i + 2)
+          | '"' -> ('"', i + 2)
+          | ''' -> (''', i + 2)
+          | 'a' -> ('\007', i + 2)
+          | 'b' -> ('\b', i + 2)
+          | 'd' -> ('\255', i + 2)
+          | 'f' -> ('\012', i + 2)
+          | 'n' -> ('\n', i + 2)
+          | 'r' -> ('\r', i + 2)
+          | 'i' -> ('\009', i + 2)
+          | 'v' -> ('\011', i + 2)
+          | 'x' ->
+              if i + 2 < String.length s then
+                match hex_value s.[i+2] with
+                [ Some v ->
+                    if i + 3 < String.length s then
+                      match hex_value s.[i+3] with
+                      [ Some v1 -> (Char.chr (16 * v + v1), i + 4)
+                      | None -> (Char.chr v, i + 3) ]
+                    else (Char.chr v, i + 3)
+                | None -> (s.[i], i + 1) ]
+              else (s.[i], i + 1)
+          | c ->
+              match oct_value s.[i+1] with
+              [ Some v ->
+                  if i + 2 < String.length s then
+                    match oct_value s.[i+2] with
+                    [ Some v1 ->
+                        let v = 8 * v + v1 in
+                        if i + 3 < String.length s then
+                          match oct_value s.[i+3] with
+                          [ Some v1 ->
+                              let v1 = 8 * v + v1 in
+                              if v1 <= 255 then (Char.chr v1, i + 4)
+                              else (Char.chr v, i + 3)
+                          | None -> (Char.chr v, i + 3) ]
+                        else (Char.chr v, i + 3)
+                    | None -> (Char.chr v, i + 2) ]
+                  else (Char.chr v, i + 2)
+              | None -> (s.[i], i + 1) ] ]
+        else (s.[i], i + 1)
+      else (s.[i], i + 1)
+    in
+    Some (c, i)
+  else None
+;
+
+value insert_command s comm ct =
+  let rec insert_in_tree i ct =
+    match next_char s i with
+    [ Some (c, i) ->
+        let cnl =
+          match ct with
+          [ CT_tree cnl -> cnl
+          | CT_comm _ | CT_none -> [] ]
+        in
+        CT_tree (insert_in_node_list (c, i) cnl)
+    | None -> CT_comm comm ]
+  and insert_in_node_list (c, i) =
+    fun
+    [ [] -> [{char = c; son = insert_in_tree i (CT_tree [])}]
+    | [n :: nl] ->
+        if c < n.char then
+          [{char = c; son = insert_in_tree i (CT_tree [])}; n :: nl]
+        else if c > n.char then
+          [n :: insert_in_node_list (c, i) nl]
+        else
+          [{char = n.char; son = insert_in_tree i n.son} :: nl] ]
+  in
+  insert_in_tree 0 ct
+;
+
+value eval_comm s ct =
+  let rec search_in_tree i ct =
+    if i = String.length s then
+      match ct with
+      [ CT_tree _ -> Some None
+      | CT_comm comm -> Some (Some comm)
+      | CT_none -> None ]
+    else
+      let c = s.[i] in
+      match ct with
+      [ CT_tree cnl -> search_in_node_list c (i + 1) cnl
+      | CT_comm _ | CT_none -> None ]
+  and search_in_node_list c i =
+    fun
+    [ [] -> None
+    | [n :: nl] ->
+        if c < n.char then None
+        else if c > n.char then search_in_node_list c i nl
+        else search_in_tree i n.son ]
+  in
+  search_in_tree 0 ct
+;
+
+value set_command ct s comm = ct.val := insert_command s comm ct.val;
+
+value ct = ref CT_none;
+
 value init_commands () = do {
-  set_char_command (CTRL 'a') Beginning_of_line;
-  set_char_command (CTRL 'e') End_of_line;
-  set_char_command (CTRL 'f') Forward_char;
-  set_char_command (CTRL 'b') Backward_char;
-  set_char_command (CTRL 'p') Previous_history;
-  set_char_command (CTRL 'n') Next_history;
-  set_char_command (CTRL 'r') Reverse_search_history;
-  set_char_command (CTRL 'd') Delete_char_or_end_of_file;
-  set_char_command (CTRL 'h') Backward_delete_char;
-  set_char_command DEL Backward_delete_char;
-  set_char_command (CTRL 't') Transpose_chars;
-  set_char_command (CTRL 'q') Quoted_insert;
-  set_char_command (CTRL 'k') Kill_line;
-  set_char_command (CTRL 'y') Yank;
-  set_char_command (CTRL 'u') Unix_line_discard;
-  set_char_command (CTRL 'l') Refresh_line;
-  set_char_command (CTRL 'g') Abort;
-  set_char_command (CTRL 'c') Interrupt;
-  set_char_command (CTRL 'z') Suspend;
-  set_char_command (CTRL '|') Quit;
-  set_char_command '\n' Accept_line;
-  set_char_command (CTRL 'x') Operate_and_get_next;
-  set_char_command ESC Start_escape_sequence;
-  set_escape_command 'f' Forward_word;
-  set_escape_command 'b' Backward_word;
-  set_escape_command 'c' Capitalize_word;
-  set_escape_command 'u' Upcase_word;
-  set_escape_command 'l' Downcase_word;
-  set_escape_command '<' Beginning_of_history;
-  set_escape_command '>' End_of_history;
-  set_escape_command 'd' Kill_word;
-  set_escape_command (CTRL 'h') Backward_kill_word;
-  set_escape_command DEL Backward_kill_word;
-  set_escape_command '[' (Start_csi_sequence "");
-  set_escape_command 'O' Start_o_sequence;
-  set_escape_command '/' Expand_abbrev;
-
-  set_csi_command "" 'A' Previous_history;	(* Up arrow *)
-  set_csi_command "" 'B' Next_history;		(* Down arrow *)
-  set_csi_command "" 'C' Forward_char;		(* Left arrow *)
-  set_csi_command "" 'D' Backward_char;		(* Right arrow *)
-
-  set_csi_command "3" '~' Delete_char;		(* Delete *)
-  set_csi_command "" 'H' Beginning_of_line;	(* Home *)
-  set_csi_command "" 'F' End_of_line;		(* End *)
-  set_csi_command "5" '~' Previous_history;	(* Page Up *)
-  set_csi_command "6" '~' Next_history;		(* Page Down *)
-
-  set_csi_command "2" 'H' Beginning_of_history;	(* Shift Home *)
-  set_csi_command "2" 'F' End_of_history;	(* Shift End *)
-
-  set_o_command 'A' Previous_history;
-  set_o_command 'B' Next_history;
-  set_o_command 'C' Forward_char;
-  set_o_command 'D' Backward_char;
-  set_o_command 'F' End_of_line;
-  set_o_command 'H' Beginning_of_line;
-
+  set_command ct "\\C-a" Beginning_of_line;
+  set_command ct "\\C-e" End_of_line;
+  set_command ct "\\C-f" Forward_char;
+  set_command ct "\\C-b" Backward_char;
+  set_command ct "\\C-p" Previous_history;
+  set_command ct "\\C-n" Next_history;
+  set_command ct "\\C-r" Reverse_search_history;
+  set_command ct "\\C-d" Delete_char_or_end_of_file;
+  set_command ct "\\C-h" Backward_delete_char;
+  set_command ct "\\177" Backward_delete_char;
+  set_command ct "\\C-t" Transpose_chars;
+  set_command ct "\\C-q" Quoted_insert;
+  set_command ct "\\C-k" Kill_line;
+  set_command ct "\\C-y" Yank;
+  set_command ct "\\C-u" Unix_line_discard;
+  set_command ct "\\C-l" Refresh_line;
+  set_command ct "\\C-g" Abort;
+  set_command ct "\\C-c" Interrupt;
+  set_command ct "\\C-z" Suspend;
+  set_command ct "\\C-\\" Quit;
+  set_command ct "\\n" Accept_line;
+  set_command ct "\\C-x" Operate_and_get_next;
+  set_command ct "\\ef" Forward_word;
+  set_command ct "\\eb" Backward_word;
+  set_command ct "\\ec" Capitalize_word;
+  set_command ct "\\eu" Upcase_word;
+  set_command ct "\\el" Downcase_word;
+  set_command ct "\\e<" Beginning_of_history;
+  set_command ct "\\e>" End_of_history;
+  set_command ct "\\ed" Kill_word;
+  set_command ct "\\e\\C-h" Backward_kill_word;
+  set_command ct "\\e\\177" Backward_kill_word;
+  set_command ct "\\e/" Expand_abbrev;
+  set_command ct "\\e[A" Previous_history;	(* Up arrow *)
+  set_command ct "\\e[B" Next_history;		(* Down arrow *)
+  set_command ct "\\e[C" Forward_char;		(* Left arrow *)
+  set_command ct "\\e[D" Backward_char;		(* Right arrow *)
+  set_command ct "\\e[3~" Delete_char;		(* Delete *)
+  set_command ct "\\e[H" Beginning_of_line;	(* Home *)
+  set_command ct "\\e[F" End_of_line;		(* End *)
+  set_command ct "\\e[5~" Previous_history;	(* Page Up *)
+  set_command ct "\\e[6~" Next_history;		(* Page Down *)
+  set_command ct "\\e[2H" Beginning_of_history;	(* Shift Home *)
+  set_command ct "\\e[2F" End_of_history;	(* Shift End *)
+  set_command ct "\\e[OA" Previous_history;
+  set_command ct "\\e[OC" Forward_char;
+  set_command ct "\\e[OD" Backward_char;
+  set_command ct "\\e[OH" Beginning_of_line;
   if meta_as_escape.val then do {
-    set_char_command (META 'f') Forward_word;
-    set_char_command (META 'b') Backward_word;
-    set_char_command (META '<') Beginning_of_history;
-    set_char_command (META '>') End_of_history;
-    set_char_command (META 'c') Capitalize_word;
-    set_char_command (META 'u') Upcase_word;
-    set_char_command (META 'l') Downcase_word;
-    set_char_command (META 'd') Kill_word;
-    set_char_command (META (CTRL 'h')) Backward_kill_word;
-    set_char_command (META DEL) Backward_kill_word;
-    set_char_command (META '/') Expand_abbrev;
+    set_command ct "\\M-f" Forward_word;
+    set_command ct "\\M-b" Backward_word;
+    set_command ct "\\M-<" Beginning_of_history;
+    set_command ct "\\M->" End_of_history;
+    set_command ct "\\M-c" Capitalize_word;
+    set_command ct "\\M-u" Upcase_word;
+    set_command ct "\\M-l" Downcase_word;
+    set_command ct "\\M-d" Kill_word;
+    set_command ct "\\M-\\C-h" Backward_kill_word;
+    set_command ct "\\M-\\127" Backward_kill_word;
+    set_command ct "\\M-/" Expand_abbrev;
   }
   else ();
 };
@@ -444,7 +536,7 @@ value set_edit () = do {
       } ]
   in
   Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio;
-  init_commands ();
+  init_commands ()
 }
 and unset_edit () = Unix.tcsetattr Unix.stdin Unix.TCSADRAIN saved_tcio;
 
@@ -816,34 +908,41 @@ value reverse_search_history st =
     st.line.cur := A.String.length q - 3;
     update_output st;
     let c = A.Char.read () in
-    match command_of_char c with
-    [ Start_escape_sequence -> fstr
-    | Self_insert ->
-        let str = A.String.concat str (A.String.of_char c) in
-        incr_search (find_line (cnt, fstr) str) str
-    | Backward_delete_char ->
-        if A.String.length str == 0 then incr_search (cnt, fstr) str
-        else do {
-          let str = A.String.sub str 0 (A.String.length str - 1) in
-          for i = 1 to cnt do { Cursor.after st.history };
-          incr_search (find_line (0, initial_str) str) str
-        }
-    | Abort -> do {
-        for i = 1 to cnt do { Cursor.after st.history };
-        bell ();
-        initial_str
-      }
-    | Reverse_search_history ->
-        let (cnt, fstr) =
-          try do {
-            Cursor.before st.history;
-            find_line (cnt + 1, Cursor.peek st.history) str
+    let s = A.Char.to_string c in
+    match eval_comm s ct.val with
+    [ Some (Some comm) ->
+        match comm with
+        [ Backward_delete_char ->
+            if A.String.length str == 0 then incr_search (cnt, fstr) str
+            else do {
+              let str = A.String.sub str 0 (A.String.length str - 1) in
+              for i = 1 to cnt do { Cursor.after st.history };
+              incr_search (find_line (0, initial_str) str) str
+            }
+        | Reverse_search_history ->
+            let (cnt, fstr) =
+              try do {
+                Cursor.before st.history;
+                find_line (cnt + 1, Cursor.peek st.history) str
+              }
+              with
+              [ Cursor.Failure -> do {bell (); (cnt, initial_str)} ]
+            in
+            incr_search (cnt, fstr) str
+        | Abort -> do {
+            for i = 1 to cnt do { Cursor.after st.history };
+            bell ();
+            initial_str
           }
-          with
-          [ Cursor.Failure -> do {bell (); (cnt, initial_str)} ]
-        in
-        incr_search (cnt, fstr) str
-    | _ -> fstr ]
+        | _ -> fstr ]
+    | Some None ->
+        if s = "\027" then fstr
+        else
+          let str = A.String.concat str (A.String.of_char c) in
+          incr_search (find_line (cnt, fstr) str) str
+    | None ->
+        let str = A.String.concat str (A.String.of_char c) in
+        incr_search (find_line (cnt, fstr) str) str ]
   }
   in
   let fstr = incr_search (0, initial_str) A.String.empty in
@@ -1012,9 +1111,7 @@ value rec update_line st comm c = do {
       }
       else ()
   | Quoted_insert -> st.istate := Quote
-  | Start_escape_sequence -> st.istate := Escape
-  | Start_csi_sequence s -> st.istate := CSI s
-  | Start_o_sequence -> st.istate := Oseq
+  | Sequence s -> st.istate := Normal s
   | Self_insert -> do {
       insert_char st c;
       st.line.cur := st.line.cur + 1;
@@ -1103,7 +1200,7 @@ local st =
   {od = {buf = A.String.empty; cur = 0; len = 0};
    nd = {buf = A.String.empty; cur = 0; len = 0};
    line = {buf = A.String.empty; cur = 0; len = 0};
-   last_line = A.String.empty; istate = Normal; shift = 0;
+   last_line = A.String.empty; istate = Normal ""; shift = 0;
    cut = A.String.empty; last_comm = Accept_line; histfile = None;
    history = Cursor.create (); abbrev = None}
 in
@@ -1121,12 +1218,14 @@ value edit_line () = do {
     let comm =
       match st.istate with
       [ Quote -> Self_insert
-      | Normal -> command_of_char c
-      | Escape -> escape_command_of_char c
-      | CSI s -> csi_command_of_char s c
-      | Oseq -> o_command_of_char c ]
+      | Normal s ->
+          let s = s ^ A.Char.to_string c in
+          match eval_comm s ct.val with
+          [ Some (Some comm) -> comm
+          | Some None -> Sequence s
+          | None -> Self_insert ] ]
     in
-    st.istate := Normal;
+    st.istate := Normal "";
     st.last_comm := comm;
     match comm with
     [ Accept_line | Operate_and_get_next -> do {
@@ -1147,7 +1246,7 @@ value edit_line () = do {
   st.od.cur := 0;
   st.line.len := 0;
   st.line.cur := 0;
-  if st.last_comm == Operate_and_get_next then
+  if st.last_comm = Operate_and_get_next then
     try do {
       Cursor.after st.history;
       set_line st (Cursor.peek st.history);
