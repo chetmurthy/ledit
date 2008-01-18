@@ -13,6 +13,7 @@
 
 #load "pa_local.cmo";
 #load "pa_def.cmo";
+#load "pa_fstream.cmo";
 
 type encoding = [ Ascii | Iso_8859 | Utf_8 ];
 
@@ -210,8 +211,6 @@ DEFINE CTRL(x) = EVAL (Char.chr (Char.code x - (Char.code 'a' - 1)));
 DEFINE META(x) = EVAL (Char.chr (Char.code x + 128));
 DEFINE DEL = '\127';
 DEFINE ESC = '\027';
-
-open Sys;
 
 value max_len = ref 70;
 value set_max_len x =
@@ -412,7 +411,7 @@ value set_command ct s comm = ct.val := insert_command s comm ct.val;
 
 value ct = ref CT_none;
 
-value init_commands () = do {
+value init_default_commands () = do {
   set_command ct "\\C-a" Beginning_of_line;
   set_command ct "\\C-e" End_of_line;
   set_command ct "\\C-f" Forward_char;
@@ -476,6 +475,113 @@ value init_commands () = do {
   }
   else ();
 };
+
+(* Reading the leditrc file *)
+
+value rev_implode l =
+  let s = String.create (List.length l) in
+  loop (String.length s - 1) l where rec loop i =
+    fun
+    [ [c :: l] -> do { String.unsafe_set s i c; loop (i - 1) l }
+    | [] -> s ]
+;
+
+value rec parse_string rev_cl =
+  fparser
+  [ [: `'"' :] -> rev_implode rev_cl
+  | [: `'\\'; `c; r = parse_string [c; '\\' :: rev_cl] :] -> r
+  | [: `c; r = parse_string [c :: rev_cl] :] -> r ]
+;
+
+value rec skip_to_eos =
+  fparser
+  [ [: `_; r = skip_to_eos :] -> r
+  | [: :] -> () ]
+;
+
+value rec skip_spaces =
+  fparser
+  [ [: `(' ' | '\t'); r = skip_spaces :] -> r
+  | [: `'#'; r = skip_to_eos :] -> r
+  | [: :] -> () ]
+;
+
+value rec parse_command rev_cl =
+  fparser
+  [ [: `('a'..'z' | 'A'..'Z' | '-' as c); r = parse_command [c :: rev_cl] :] ->
+      r
+  | [: :] -> rev_implode rev_cl ]
+;
+
+value parse_line =
+  fparser
+  [ [: `'"'; s = parse_string []; _ = skip_spaces; `':'; _ = skip_spaces;
+       comm = parse_command []; _ = skip_spaces; _ = Fstream.empty :] ->
+         (s, comm) ]
+;
+
+value command_of_name = do {
+  let ht = Hashtbl.create 1 in
+  let add = Hashtbl.add ht in
+  add "abort" Abort;
+  add "accept-line" Accept_line;
+  add "backward-char" Backward_char;
+  add "backward-delete-char" Backward_delete_char;
+  add "backward-kill-word" Backward_kill_word;
+  add "backward-kill-word" Backward_kill_word;
+  add "backward-word" Backward_word;
+  add "beginning-of-history" Beginning_of_history;
+  add "beginning-of-line" Beginning_of_line;
+  add "capitalize-word" Capitalize_word;
+  add "delete-char" Delete_char;
+  add "delete-char-or-end-of-file" Delete_char_or_end_of_file;
+  add "downcase-word" Downcase_word;
+  add "end-of-history" End_of_history;
+  add "end-of-line" End_of_line;
+  add "expand-abbrev" Expand_abbrev;
+  add "forward-char" Forward_char;
+  add "forward-word" Forward_word;
+  add "interrupt" Interrupt;
+  add "kill-line" Kill_line;
+  add "kill-word" Kill_word;
+  add "next-history" Next_history;
+  add "operate-and-get-next" Operate_and_get_next;
+  add "previous-history" Previous_history;
+  add "quit" Quit;
+  add "quoted-insert" Quoted_insert;
+  add "refresh-line" Refresh_line;
+  add "reverse-search-history" Reverse_search_history;
+  add "suspend" Suspend;
+  add "transpose-chars" Transpose_chars;
+  add "unix-line-discard" Unix_line_discard;
+  add "upcase-word" Upcase_word;
+  add "yank" Yank;
+  fun name ->
+    try Some (Hashtbl.find ht name) with
+    [ Not_found -> failwith name ]
+};
+
+value init_file_commands fname =
+  let ic = open_in fname in
+  loop () where rec loop () =
+    match try Some (input_line ic) with [ End_of_file -> None ] with
+    [ Some s -> do {
+        match parse_line (Fstream.of_string s) with
+        [ Some ((s, comm_name), _) ->
+            match command_of_name comm_name with
+            [ Some comm -> set_command ct s comm
+            | None -> () ]
+        | None -> () ];
+        loop ()
+      }
+    | None -> close_in ic ]
+;
+
+value init_commands () =
+  let fname = "leditrc" in
+  if Sys.file_exists fname then init_file_commands fname
+  else init_default_commands ()
+;
 
 type line =
   { buf : mutable A.String.t;

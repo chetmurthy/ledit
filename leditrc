@@ -1,0 +1,48 @@
+"\C-a": beginning-of-line
+"\C-e": end-of-line
+"\C-f": forward-char
+"\C-b": backward-char
+"\C-p": previous-history
+"\C-n": next-history
+"\C-r": reverse-search-history
+"\C-d": delete-char-or-end-of-file
+"\C-h": backward-delete-char
+"\177": backward-delete-char
+"\C-t": transpose-chars
+"\C-q": quoted-insert
+"\C-k": kill-line
+"\C-y": yank
+"\C-u": unix-line-discard
+"\C-l": refresh-line
+"\C-g": abort
+"\C-c": interrupt
+"\C-z": suspend
+"\C-\": quit
+"\n": accept-line
+"\C-x": operate-and-get-next
+"\ef": forward-word
+"\eb": backward-word
+"\ec": capitalize-word
+"\eu": upcase-word
+"\el": downcase-word
+"\e<": beginning-of-history
+"\e>": end-of-history
+"\ed": kill-word
+"\e\C-h": backward-kill-word
+"\e\177": backward-kill-word
+"\e/": expand-abbrev
+"\e[A": previous-history	# Up arrow
+"\e[B": next-history		# Down arrow
+"\e[C": forward-char		# Left arrow
+"\e[D": backward-char		# Right arrow
+"\e[3~": delete-char		# Delete
+"\e[H": beginning-of-line	# Home
+"\e[F": end-of-line		# End
+"\e[5~": previous-history	# Page Up
+"\e[6~": next-history		# Page Down
+"\e[2H": beginning-of-history	# Shift Home
+"\e[2F": end-of-history         # Shift End
+"\e[OA": previous-history
+"\e[OC": forward-char
+"\e[OD": backward-char
+"\e[OH": beginning-of-line

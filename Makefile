@@ -6,18 +6,20 @@ MANDIR=/usr/local/man/man1
 OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
 CAMLP5=camlp5r -I ext
-ZOFILES=cursor.cmo ledit.cmo go.cmo
+OBJS=cursor.cmo ledit.cmo go.cmo
+OTHER_OBJS=unix.cma -I `camlp5 -where` gramlib.cma
+OTHER_XOBJS=unix.cmxa -I `camlp5 -where` gramlib.cmxa
 TARGET=ledit.out
 MKDIR=mkdir -p
 EXT=ext/pa_def.cmo ext/pa_local.cmo
 
 all: $(EXT) $(TARGET) ledit.1
 
-$(TARGET): $(ZOFILES)
-	$(OCAMLC) -custom unix.cma $(ZOFILES) -o $(TARGET)
+$(TARGET): $(OBJS)
+	$(OCAMLC) -custom $(OTHER_OBJS) $(OBJS) -o $(TARGET)
 
-$(TARGET:.out=.opt): $(ZOFILES:.cmo=.cmx)
-	$(OCAMLOPT) unix.cmxa $(ZOFILES:.cmo=.cmx) -o $(TARGET:.out=.opt)
+$(TARGET:.out=.opt): $(OBJS:.cmo=.cmx)
+	$(OCAMLOPT) $(OTHER_XOBJS) $(OBJS:.cmo=.cmx) -o $(TARGET:.out=.opt)
 
 ledit.1: ledit.1.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
@@ -33,7 +35,7 @@ install:
 
 depend:
 	> .depend.new
-	for i in $(ZOFILES:.cmo=.ml); do \
+	for i in $(OBJS:.cmo=.ml); do \
 	  $(CAMLP5) pr_depend.cmo $$i >> .depend.new; \
 	done
 	mv .depend .depend.old
