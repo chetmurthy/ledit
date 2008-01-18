@@ -1,6 +1,9 @@
 Ledit Version 2.00
 ------------------
 
+- [18 Jan 2008] Added ability to have a file ".leditrc" in one's home
+  directory containing the user's bindings. See man page.
+
 Ledit Version 1.17
 ------------------
 

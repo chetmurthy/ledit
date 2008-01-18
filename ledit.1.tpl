@@ -53,6 +53,12 @@ Runs the command \fIcommand\fP and its possible options. This
 must be the last option of ledit. The default value is "cat".
 
 .SH KEYS BINDINGS
+If a file named ".leditrc" is found in the user's home directory, it
+is read by ledit to find how key are bound to the commands. See the
+section \fBLEDITRC\fP.
+
+If this file does not exist, the keys are the following.
+
 In the following lines, the caret sign "^" means "control" and the
 sequence "M-" means "meta" (either with the "meta" prefix, or by
 pressing the "escape" key before). Examples:
@@ -69,8 +75,8 @@ this case, use the manipulation with "escape").
 .PP
 
 The editing commands are:
-.nf
 
+.nf
       ^a   : beginning of line
       ^e   : end of line
       ^f   : forward char
@@ -107,14 +113,16 @@ The editing commands are:
 
 The arrow keys can be used, providing your keyword returns standard key
 sequences:
-.nf
 
+.nf
       up arrow    : previous line in history
       down arrow  : next line in history
       right arrow : forward char
       left arrow  : backward char
+.fi
 
 Other keys:
+
 .nf
       home        : beginning of line
       end         : end of line
@@ -123,6 +131,7 @@ Other keys:
       page down   : next line in history
       shift home  : beginning of history
       shift end   : end of history
+.fi
 
 .SH REVERSE SEARCH
 The reverse search in incremental, i.e. \fIledit\fP backward searchs in the
@@ -136,14 +145,36 @@ To stop the editing and display the current line found, type "escape"
 the editing too).
 
 Summary of reverse search commands:
-.nf
 
+.nf
       ^g  : abort search
       ^r  : search previous same pattern
       ^h  : (or backspace) search without the last char
       del : search without the last char
       any other command : stop search and show the line found
+.fi
 
+.SH LEDITRC
+If a file named .leditrc is found in user's home directory, it is read to
+find the bindings. Blank lines and lines starting with "#" are ignored.
+Other lines must start with a string defining the key sequence followed
+by a colon and the command identifier. For example, the line:
+
+.nf
+    "\\C-a": beginning-of-line
+.fi
+
+binds the sequence "control-a" to the command "beginning-of-line".
+
+The key sequence may contain the specific meta-sequences:
+
+.nf
+    \\C-   followed by a key: "control" of this key
+    \\M-   followed by a key: "meta" of this key
+    \\e    the "escape" key
+    \\nnn  where nnn is one, two, or three octal digits, or:
+    \\xnn  where nn is one or two hexadecimal digits:
+            the binary representation of a byte
 .fi
 
 .SH KNOWN BUGS
