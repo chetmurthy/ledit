@@ -95,7 +95,7 @@ The editing commands are:
       ^k   : cut until end of line
       ^y   : paste
       ^u   : line discard
-      ^l   : refresh line
+      ^l   : redraw current line
       ^g   : abort prefix
       ^c   : interrupt
       ^z   : suspend

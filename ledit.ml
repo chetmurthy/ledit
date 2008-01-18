@@ -246,7 +246,7 @@ type command =
   | Previous_history
   | Quit
   | Quoted_insert
-  | Refresh_line
+  | Redraw_current_line
   | Reverse_search_history
   | Self_insert
   | Sequence of string
@@ -427,7 +427,7 @@ value init_default_commands () = do {
   set_command ct "\\C-k" Kill_line;
   set_command ct "\\C-y" Yank;
   set_command ct "\\C-u" Unix_line_discard;
-  set_command ct "\\C-l" Refresh_line;
+  set_command ct "\\C-l" Redraw_current_line;
   set_command ct "\\C-g" Abort;
   set_command ct "\\C-c" Interrupt;
   set_command ct "\\C-z" Suspend;
@@ -549,7 +549,7 @@ value command_of_name = do {
   add "previous-history" Previous_history;
   add "quit" Quit;
   add "quoted-insert" Quoted_insert;
-  add "refresh-line" Refresh_line;
+  add "redraw-current-line" Redraw_current_line;
   add "reverse-search-history" Reverse_search_history;
   add "suspend" Suspend;
   add "transpose-chars" Transpose_chars;
@@ -1225,7 +1225,7 @@ value rec update_line st comm c = do {
       update_output st
     }
   | Expand_abbrev -> expand_abbrev st abbrev
-  | Refresh_line -> do {
+  | Redraw_current_line -> do {
       put_newline st;
       st.od.cur := 0;
       st.od.len := 0;
