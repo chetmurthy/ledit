@@ -53,11 +53,9 @@ Runs the command \fIcommand\fP and its possible options. This
 must be the last option of ledit. The default value is "cat".
 
 .SH KEYS BINDINGS
-If a file named ".leditrc" is found in the user's home directory, it
-is read by ledit to find how key are bound to the commands. See the
-section \fBLEDITRC\fP.
-
-If this file does not exist, the keys are the following.
+When ledit starts, some default key bindings are defined. If a file named
+".leditrc" is found in the user's home directory, key bindings can be
+modified or added. See the section \fBLEDITRC\fP.
 
 In the following lines, the caret sign "^" means "control" and the
 sequence "M-" means "meta" (either with the "meta" prefix, or by
@@ -156,9 +154,10 @@ Summary of reverse search commands:
 
 .SH LEDITRC
 If a file named .leditrc is found in user's home directory, it is read to
-find the bindings. Blank lines and lines starting with "#" are ignored.
-Other lines must start with a string defining the key sequence followed
-by a colon and the command identifier. For example, the line:
+modify or complete the default bindings. Bindings lines are the ones which
+start with a string defining the key sequence and follow with a colon and
+a binding. A binding is either a string or a command. The other lines are
+ignored For example,the line:
 
 .nf
     "\\C-a": beginning-of-line
@@ -175,6 +174,43 @@ The key sequence may contain the specific meta-sequences:
     \\nnn  where nnn is one, two, or three octal digits, or:
     \\xnn  where nn is one or two hexadecimal digits:
             the binary representation of a byte
+.fi
+
+The commands are:
+
+.nf
+  abort: do nothing
+  accept-line: send the current line
+  backward-char: move the cursor to the previous character
+  backward-delete-char: delete the previous character
+  backward-kill-word: delete the previous word
+  backward-word: move the cursor before the previous word
+  beginning-of-history: display the first line of the history
+  beginning-of-line: move the cursor at the beginning of the line
+  capitalize-word: uppercase the first char and lowercase the rest
+  delete-char: delete the character under the cursor
+  delete-char-or-end-of-file: same but eof if no character in the line
+  downcase-word: lowercase whole word
+  end-of-history: display the last line of the history
+  end-of-line: move the cursor to the end of the line
+  expand-abbrev: try to complete the word by looking at the history
+  forward-char: move the cursor after the next word
+  forward-word: move the cursor to the next character
+  interrupt: interrupt command (send control-C)
+  kill-line: delete from the cursor to the end and save in buffer
+  kill-word: delete the next word
+  next-history: display the next line of the history
+  operate-and-get-next: send line and display the next history line
+  previous-history: display the previous line of the history
+  quit: quit ledit
+  quoted-insert: insert the next character as it is
+  redraw-current-line: redisplay the current line
+  reverse-search-history: backward search in the history
+  suspend: suspend ledit (send control-Z)
+  transpose-chars: exchange the last two characters
+  unix-line-discard: kill current line
+  upcase-word: uppercase whole word
+  yank: insert kill buffer
 .fi
 
 .SH KNOWN BUGS

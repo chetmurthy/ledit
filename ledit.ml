@@ -31,6 +31,7 @@ module A :
         value not_ascii_val : t -> option (t * t * t);
         value uppercase : t -> t;
         value lowercase : t -> t;
+        value parse : Stream.t char -> t;
         value to_string : t -> string;
         value input : in_channel -> t;
         value read : unit -> t;
@@ -157,6 +158,7 @@ module A :
                  let len = Unix.read Unix.stdin buff 0 1 in
                  if len == 0 then raise End_of_file else buff.[0])
         ;
+        value parse s = get_char (fun () -> Stream.next s);
         value print c =
           if String.length c = 1 && c.[0] = '\n' then print_newline ()
           else print_string c
@@ -238,6 +240,7 @@ type command =
   | Expand_abbrev
   | Forward_char
   | Forward_word
+  | Insert of string
   | Interrupt
   | Kill_line
   | Kill_word
@@ -513,11 +516,19 @@ value rec parse_command rev_cl =
   | [: :] -> rev_implode rev_cl ]
 ;
 
+type binding = [ B_string of string | B_comm of string ];
+
+value parse_binding =
+  fparser
+  [ [: `'"'; s = parse_string [] :] -> B_string s
+  | [: c = parse_command [] :] -> B_comm c ]
+;
+
 value parse_line =
   fparser
-  [ [: `'"'; s = parse_string []; _ = skip_spaces; `':'; _ = skip_spaces;
-       comm = parse_command []; _ = skip_spaces; _ = Fstream.empty :] ->
-         (s, comm) ]
+  [ [: `'"'; key = parse_string []; _ = skip_spaces; `':'; _ = skip_spaces;
+       binding = parse_binding; _ = skip_spaces; _ = Fstream.empty :] ->
+         (key, binding) ]
 ;
 
 value command_of_name = do {
@@ -527,7 +538,6 @@ value command_of_name = do {
   add "accept-line" Accept_line;
   add "backward-char" Backward_char;
   add "backward-delete-char" Backward_delete_char;
-  add "backward-kill-word" Backward_kill_word;
   add "backward-kill-word" Backward_kill_word;
   add "backward-word" Backward_word;
   add "beginning-of-history" Beginning_of_history;
@@ -558,7 +568,7 @@ value command_of_name = do {
   add "yank" Yank;
   fun name ->
     try Some (Hashtbl.find ht name) with
-    [ Not_found -> failwith name ]
+    [ Not_found -> None (*failwith ("command not found: " ^ name)*) ]
 };
 
 value init_file_commands fname =
@@ -567,9 +577,11 @@ value init_file_commands fname =
     match try Some (input_line ic) with [ End_of_file -> None ] with
     [ Some s -> do {
         match parse_line (Fstream.of_string s) with
-        [ Some ((s, comm_name), _) ->
+        [ Some ((key, B_string s), _) ->
+            set_command ct key (Insert s)
+        | Some ((key, B_comm comm_name), _) ->
             match command_of_name comm_name with
-            [ Some comm -> set_command ct s comm
+            [ Some comm -> set_command ct key comm
             | None -> () ]
         | None -> () ];
         loop ()
@@ -577,14 +589,14 @@ value init_file_commands fname =
     | None -> close_in ic ]
 ;
 
-value init_commands () =
+value init_commands () = do {
+  init_default_commands ();
   let fname =
     try Filename.concat (Sys.getenv "HOME") ".leditrc" with
     [ Not_found -> ".leditrc" ]
   in
-  if Sys.file_exists fname then init_file_commands fname
-  else init_default_commands ()
-;
+  if Sys.file_exists fname then init_file_commands fname else ();
+};
 
 type line =
   { buf : mutable A.String.t;
@@ -1225,6 +1237,17 @@ value rec update_line st comm c = do {
       insert_char st c;
       st.line.cur := st.line.cur + 1;
       balance_paren st c;
+      update_output st
+    }
+  | Insert s -> do {
+      let strm = Stream.of_string s in
+      try
+        while True do {
+          insert_char st (A.Char.parse strm);
+          st.line.cur := st.line.cur + 1;
+        }
+      with
+      [ Stream.Failure -> () ];
       update_output st
     }
   | Expand_abbrev -> expand_abbrev st abbrev
