@@ -53,9 +53,8 @@ Runs the command \fIcommand\fP and its possible options. This
 must be the last option of ledit. The default value is "cat".
 
 .SH KEYS BINDINGS
-When ledit starts, some default key bindings are defined. If a file named
-".leditrc" is found in the user's home directory, key bindings can be
-modified or added. See the section \fBLEDITRC\fP.
+When ledit starts, some default key bindings are defined. The can be
+completed with a "leditrc" file. See the section \fBLEDITRC\fP.
 
 In the following lines, the caret sign "^" means "control" and the
 sequence "M-" means "meta" (either with the "meta" prefix, or by
@@ -153,11 +152,14 @@ Summary of reverse search commands:
 .fi
 
 .SH LEDITRC
-If a file named .leditrc is found in user's home directory, it is read to
-modify or complete the default bindings. Bindings lines are the ones which
-start with a string defining the key sequence and follow with a colon and
-a binding. A binding is either a string or a command. The other lines are
-ignored For example,the line:
+If the environment variable LEDITRC is set, it contains the name of the
+leditrc file. Otherwise it is the file named ".leditrc" in user's home
+directory. When starting, ledit reads this file, if it exists, to modify
+or complete the default bindings.
+
+Bindings lines are the ones which start with a string defining the key
+sequence and follow with a colon and a binding. A binding is either a
+string or a command. The other lines are ignored For example,the line:
 
 .nf
     "\\C-a": beginning-of-line

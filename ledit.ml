@@ -594,8 +594,10 @@ value init_file_commands fname =
 value init_commands () = do {
   init_default_commands ();
   let fname =
-    try Filename.concat (Sys.getenv "HOME") ".leditrc" with
-    [ Not_found -> ".leditrc" ]
+    try Sys.getenv "LEDITRC" with
+    [ Not_found ->
+        try Filename.concat (Sys.getenv "HOME") ".leditrc" with
+        [ Not_found -> ".leditrc" ] ]
   in
   if Sys.file_exists fname then init_file_commands fname else ();
 };
