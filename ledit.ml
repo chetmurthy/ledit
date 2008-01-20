@@ -414,9 +414,7 @@ value eval_comm s kb =
 
 value set_command kb s comm = kb.val := insert_command s comm kb.val;
 
-value kb = ref KB_none;
-
-value init_default_commands () = do {
+value init_default_commands kb = do {
   set_command kb "\\C-a" Beginning_of_line;
   set_command kb "\\C-e" End_of_line;
   set_command kb "\\C-f" Forward_char;
@@ -478,7 +476,7 @@ value init_default_commands () = do {
     set_command kb "\\M-\\127" Backward_kill_word;
     set_command kb "\\M-/" Expand_abbrev;
   }
-  else ();
+  else ()
 };
 
 (* Reading the leditrc file *)
@@ -573,7 +571,7 @@ value command_of_name = do {
     [ Not_found -> None (*failwith ("command not found: " ^ name)*) ]
 };
 
-value init_file_commands fname =
+value init_file_commands kb fname =
   let ic = open_in fname in
   loop () where rec loop () =
     match try Some (input_line ic) with [ End_of_file -> None ] with
@@ -592,14 +590,16 @@ value init_file_commands fname =
 ;
 
 value init_commands () = do {
-  init_default_commands ();
+  let kb = ref KB_none in
+  init_default_commands kb;
   let fname =
     try Sys.getenv "LEDITRC" with
     [ Not_found ->
         try Filename.concat (Sys.getenv "HOME") ".leditrc" with
         [ Not_found -> ".leditrc" ] ]
   in
-  if Sys.file_exists fname then init_file_commands fname else ();
+  if Sys.file_exists fname then init_file_commands kb fname else ();
+  kb.val
 };
 
 type line =
@@ -623,6 +623,7 @@ type state =
     istate : mutable istate;
     shift : mutable int;
     cut : mutable A.String.t;
+    key_bindings : Lazy.t kb_tree;
     last_comm : mutable command;
     histfile : mutable option out_channel;
     history : mutable Cursor.t A.String.t;
@@ -645,7 +646,7 @@ value saved_tcio =
 ;
 value edit_tcio = ref None;
 
-value set_edit () = do {
+value set_edit () =
   let tcio =
     match edit_tcio.val with
     [ Some e -> e
@@ -660,9 +661,7 @@ value set_edit () = do {
         tcio
       } ]
   in
-  Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio;
-  init_commands ()
-}
+  Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio
 and unset_edit () = Unix.tcsetattr Unix.stdin Unix.TCSADRAIN saved_tcio;
 
 value line_set_nth_char line i c =
@@ -1034,7 +1033,7 @@ value reverse_search_history st =
     update_output st;
     let c = A.Char.read () in
     let s = A.Char.to_string c in
-    match eval_comm s kb.val with
+    match eval_comm s (Lazy.force st.key_bindings) with
     [ Some (Some comm) ->
         match comm with
         [ Backward_delete_char ->
@@ -1337,6 +1336,7 @@ local st =
    nd = {buf = A.String.empty; cur = 0; len = 0};
    line = {buf = A.String.empty; cur = 0; len = 0};
    last_line = A.String.empty; istate = Normal ""; shift = 0;
+   key_bindings = lazy (init_commands ());
    cut = A.String.empty; last_comm = Accept_line; histfile = None;
    history = Cursor.create (); abbrev = None}
 in
@@ -1356,7 +1356,7 @@ value edit_line () = do {
       [ Quote -> Self_insert
       | Normal s ->
           let s = s ^ A.Char.to_string c in
-          match eval_comm s kb.val with
+          match eval_comm s (Lazy.force st.key_bindings) with
           [ Some (Some comm) -> comm
           | Some None -> Sequence s
           | None -> Self_insert ] ]
