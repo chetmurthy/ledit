@@ -389,95 +389,72 @@ value insert_command s comm kb =
   insert_in_tree 0 kb
 ;
 
-value eval_comm s kb =
-  let rec search_in_tree i kb =
-    if i = String.length s then
-      match kb with
-      [ KB_tree _ -> Some None
-      | KB_comm comm -> Some (Some comm)
-      | KB_none -> None ]
-    else
-      let c = s.[i] in
-      match kb with
-      [ KB_tree cnl -> search_in_node_list c (i + 1) cnl
-      | KB_comm _ | KB_none -> None ]
-  and search_in_node_list c i =
-    fun
-    [ [] -> None
-    | [n :: nl] ->
-        if c < n.char then None
-        else if c > n.char then search_in_node_list c i nl
-        else search_in_tree i n.son ]
-  in
-  search_in_tree 0 kb
-;
-
 value set_command kb s comm = kb.val := insert_command s comm kb.val;
 
-value init_default_commands kb = do {
-  set_command kb "\\C-a" Beginning_of_line;
-  set_command kb "\\C-e" End_of_line;
-  set_command kb "\\C-f" Forward_char;
-  set_command kb "\\C-b" Backward_char;
-  set_command kb "\\C-p" Previous_history;
-  set_command kb "\\C-n" Next_history;
-  set_command kb "\\C-r" Reverse_search_history;
-  set_command kb "\\C-d" Delete_char_or_end_of_file;
-  set_command kb "\\C-h" Backward_delete_char;
-  set_command kb "\\177" Backward_delete_char;
-  set_command kb "\\C-t" Transpose_chars;
-  set_command kb "\\C-q" Quoted_insert;
-  set_command kb "\\C-k" Kill_line;
-  set_command kb "\\C-y" Yank;
-  set_command kb "\\C-u" Unix_line_discard;
-  set_command kb "\\C-l" Redraw_current_line;
-  set_command kb "\\C-g" Abort;
-  set_command kb "\\C-c" Interrupt;
-  set_command kb "\\C-z" Suspend;
-  set_command kb "\\C-\\" Quit;
-  set_command kb "\\n" Accept_line;
-  set_command kb "\\C-x" Operate_and_get_next;
-  set_command kb "\\ef" Forward_word;
-  set_command kb "\\eb" Backward_word;
-  set_command kb "\\ec" Capitalize_word;
-  set_command kb "\\eu" Upcase_word;
-  set_command kb "\\el" Downcase_word;
-  set_command kb "\\e<" Beginning_of_history;
-  set_command kb "\\e>" End_of_history;
-  set_command kb "\\ed" Kill_word;
-  set_command kb "\\e\\C-h" Backward_kill_word;
-  set_command kb "\\e\\177" Backward_kill_word;
-  set_command kb "\\e/" Expand_abbrev;
-  set_command kb "\\e[A" Previous_history;	(* Up arrow *)
-  set_command kb "\\e[B" Next_history;		(* Down arrow *)
-  set_command kb "\\e[C" Forward_char;		(* Left arrow *)
-  set_command kb "\\e[D" Backward_char;		(* Right arrow *)
-  set_command kb "\\e[3~" Delete_char;		(* Delete *)
-  set_command kb "\\e[H" Beginning_of_line;	(* Home *)
-  set_command kb "\\e[F" End_of_line;		(* End *)
-  set_command kb "\\e[5~" Previous_history;	(* Page Up *)
-  set_command kb "\\e[6~" Next_history;		(* Page Down *)
-  set_command kb "\\e[2H" Beginning_of_history;	(* Shift Home *)
-  set_command kb "\\e[2F" End_of_history;	(* Shift End *)
-  set_command kb "\\e[OA" Previous_history;
-  set_command kb "\\e[OC" Forward_char;
-  set_command kb "\\e[OD" Backward_char;
-  set_command kb "\\e[OH" Beginning_of_line;
-  if meta_as_escape.val then do {
-    set_command kb "\\M-f" Forward_word;
-    set_command kb "\\M-b" Backward_word;
-    set_command kb "\\M-<" Beginning_of_history;
-    set_command kb "\\M->" End_of_history;
-    set_command kb "\\M-c" Capitalize_word;
-    set_command kb "\\M-u" Upcase_word;
-    set_command kb "\\M-l" Downcase_word;
-    set_command kb "\\M-d" Kill_word;
-    set_command kb "\\M-\\C-h" Backward_kill_word;
-    set_command kb "\\M-\\127" Backward_kill_word;
-    set_command kb "\\M-/" Expand_abbrev;
-  }
-  else ()
-};
+value init_default_commands kb =
+  List.fold_left (fun kb (key, bind) -> insert_command key bind kb) kb
+    [("\\C-a", Beginning_of_line);
+     ("\\C-e", End_of_line);
+     ("\\C-f", Forward_char);
+     ("\\C-b", Backward_char);
+     ("\\C-p", Previous_history);
+     ("\\C-n", Next_history);
+     ("\\C-r", Reverse_search_history);
+     ("\\C-d", Delete_char_or_end_of_file);
+     ("\\C-h", Backward_delete_char);
+     ("\\177", Backward_delete_char);
+     ("\\C-t", Transpose_chars);
+     ("\\C-q", Quoted_insert);
+     ("\\C-k", Kill_line);
+     ("\\C-y", Yank);
+     ("\\C-u", Unix_line_discard);
+     ("\\C-l", Redraw_current_line);
+     ("\\C-g", Abort);
+     ("\\C-c", Interrupt);
+     ("\\C-z", Suspend);
+     ("\\C-\\", Quit);
+     ("\\n", Accept_line);
+     ("\\C-x", Operate_and_get_next);
+     ("\\ef", Forward_word);
+     ("\\eb", Backward_word);
+     ("\\ec", Capitalize_word);
+     ("\\eu", Upcase_word);
+     ("\\el", Downcase_word);
+     ("\\e<", Beginning_of_history);
+     ("\\e>", End_of_history);
+     ("\\ed", Kill_word);
+     ("\\e\\C-h", Backward_kill_word);
+     ("\\e\\177", Backward_kill_word);
+     ("\\e/", Expand_abbrev);
+     ("\\e[A", Previous_history);	(* Up arrow *)
+     ("\\e[B", Next_history);		(* Down arrow *)
+     ("\\e[C", Forward_char);		(* Left arrow *)
+     ("\\e[D", Backward_char);		(* Right arrow *)
+     ("\\e[3~", Delete_char);		(* Delete *)
+     ("\\e[H", Beginning_of_line);	(* Home *)
+     ("\\e[F", End_of_line);		(* End *)
+     ("\\e[5~", Previous_history);	(* Page Up *)
+     ("\\e[6~", Next_history);		(* Page Down *)
+     ("\\e[2H", Beginning_of_history);	(* Shift Home *)
+     ("\\e[2F", End_of_history);	(* Shift End *)
+     ("\\e[OA", Previous_history);
+     ("\\e[OC", Forward_char);
+     ("\\e[OD", Backward_char);
+     ("\\e[OH", Beginning_of_line) ::
+     if meta_as_escape.val then
+       [("\\M-f", Forward_word);
+        ("\\M-b", Backward_word);
+        ("\\M-<", Beginning_of_history);
+        ("\\M->", End_of_history);
+        ("\\M-c", Capitalize_word);
+        ("\\M-u", Upcase_word);
+        ("\\M-l", Downcase_word);
+        ("\\M-d", Kill_word);
+        ("\\M-\\C-h", Backward_kill_word);
+        ("\\M-\\127", Backward_kill_word);
+        ("\\M-/", Expand_abbrev)]
+     else []]
+;
 
 (* Reading the leditrc file *)
 
@@ -573,34 +550,33 @@ value command_of_name = do {
 
 value init_file_commands kb fname =
   let ic = open_in fname in
-  loop () where rec loop () =
+  loop kb where rec loop kb =
     match try Some (input_line ic) with [ End_of_file -> None ] with
-    [ Some s -> do {
-        match parse_line (Fstream.of_string s) with
-        [ Some ((key, B_string s), _) ->
-            set_command kb key (Insert s)
-        | Some ((key, B_comm comm_name), _) ->
-            match command_of_name comm_name with
-            [ Some comm -> set_command kb key comm
-            | None -> () ]
-        | None -> () ];
-        loop ()
-      }
-    | None -> close_in ic ]
+    [ Some s ->
+        let kb =
+          match parse_line (Fstream.of_string s) with
+          [ Some ((key, B_string s), _) ->
+              insert_command key (Insert s) kb
+          | Some ((key, B_comm comm_name), _) ->
+              match command_of_name comm_name with
+              [ Some comm -> insert_command key comm kb
+              | None -> kb ]
+          | None -> kb ]
+        in
+        loop kb
+    | None -> do { close_in ic; kb } ]
 ;
 
-value init_commands () = do {
-  let kb = ref KB_none in
-  init_default_commands kb;
+value init_commands () =
+  let kb = init_default_commands KB_none in
   let fname =
     try Sys.getenv "LEDITRC" with
     [ Not_found ->
         try Filename.concat (Sys.getenv "HOME") ".leditrc" with
         [ Not_found -> ".leditrc" ] ]
   in
-  if Sys.file_exists fname then init_file_commands kb fname else ();
-  kb.val
-};
+  if Sys.file_exists fname then init_file_commands kb fname else kb
+;
 
 type line =
   { buf : mutable A.String.t;
@@ -623,11 +599,43 @@ type state =
     istate : mutable istate;
     shift : mutable int;
     cut : mutable A.String.t;
-    key_bindings : Lazy.t kb_tree;
+    key_bindings : mutable option kb_tree;
     last_comm : mutable command;
     histfile : mutable option out_channel;
     history : mutable Cursor.t A.String.t;
     abbrev : mutable option abbrev_data }
+;
+
+value eval_comm s st =
+  let rec search_in_tree i kb =
+    if i = String.length s then
+      match kb with
+      [ KB_tree _ -> Some None
+      | KB_comm comm -> Some (Some comm)
+      | KB_none -> None ]
+    else
+      let c = s.[i] in
+      match kb with
+      [ KB_tree cnl -> search_in_node_list c (i + 1) cnl
+      | KB_comm _ | KB_none -> None ]
+  and search_in_node_list c i =
+    fun
+    [ [] -> None
+    | [n :: nl] ->
+        if c < n.char then None
+        else if c > n.char then search_in_node_list c i nl
+        else search_in_tree i n.son ]
+  in
+  let kb =
+    match st.key_bindings with
+    [ Some kb -> kb
+    | None -> do {
+        let kb = init_commands () in
+        st.key_bindings := Some kb;
+        kb
+      } ]
+  in
+  search_in_tree 0 kb
 ;
 
 value put_bs st c = A.Char.prerr_backsp c;
@@ -1033,7 +1041,7 @@ value reverse_search_history st =
     update_output st;
     let c = A.Char.read () in
     let s = A.Char.to_string c in
-    match eval_comm s (Lazy.force st.key_bindings) with
+    match eval_comm s st with
     [ Some (Some comm) ->
         match comm with
         [ Backward_delete_char ->
@@ -1336,9 +1344,8 @@ local st =
    nd = {buf = A.String.empty; cur = 0; len = 0};
    line = {buf = A.String.empty; cur = 0; len = 0};
    last_line = A.String.empty; istate = Normal ""; shift = 0;
-   key_bindings = lazy (init_commands ());
-   cut = A.String.empty; last_comm = Accept_line; histfile = None;
-   history = Cursor.create (); abbrev = None}
+   key_bindings = None; cut = A.String.empty; last_comm = Accept_line;
+   histfile = None; history = Cursor.create (); abbrev = None}
 in
 value edit_line () = do {
   let rec edit_loop () = do {
@@ -1356,7 +1363,7 @@ value edit_line () = do {
       [ Quote -> Self_insert
       | Normal s ->
           let s = s ^ A.Char.to_string c in
-          match eval_comm s (Lazy.force st.key_bindings) with
+          match eval_comm s st with
           [ Some (Some comm) -> comm
           | Some None -> Sequence s
           | None -> Self_insert ] ]
