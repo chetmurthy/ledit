@@ -1382,7 +1382,7 @@ value edit_line () = do {
         save_history st line;
         line
       }
-    | _ -> do {update_line st comm c; edit_loop ()} ]
+    | _ -> do { update_line st comm c; edit_loop () } ]
   }
   in
   st.od.len := 0;
@@ -1391,6 +1391,9 @@ value edit_line () = do {
   st.line.cur := 0;
   if st.last_comm = Operate_and_get_next then
     try do {
+      (* small temporization to give time to ledit associated command to
+         display the line sent *)
+      let _ = Unix.select [] [] [] 0.001 in
       Cursor.after st.history;
       set_line st (Cursor.peek st.history);
       update_output st
