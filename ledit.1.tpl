@@ -176,6 +176,14 @@ The key sequence may contain the specific meta-sequences:
     \\nnn  where nnn is one, two, or three octal digits, or:
     \\xnn  where nn is one or two hexadecimal digits:
             the binary representation of a byte
+    \\a    bell = \\C-g
+    \\b    backspace = \\C-h
+    \\d    delete = \\277
+    \\f    form feed = \\C-l
+    \\n    newline = \\C-j
+    \\r    carriage return = \\C-m
+    \\t    tabulation = \\C-i
+    \\v    vertical tabulation = \\C-k
 .fi
 
 The commands are:

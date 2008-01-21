@@ -72,21 +72,21 @@ module A :
         type t = string;
         value of_ascii c = String.make 1 c;
         value to_ascii c =
-           if String.length c = 1 && Char.code c.[0] < 128 then Some c.[0]
-           else None
+          if String.length c = 1 && Char.code c.[0] < 128 then Some c.[0]
+          else None
         ;
         value is_word_char c =
-           if String.length c = 1 then
-             match c.[0] with
-             [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> True
-             | x ->
-                 if Char.code x < 128 then False
-                 else
-                   match encoding.val with
-                   [ Ascii -> False
-                   | Iso_8859 -> Char.code x >= 160
-                   | Utf_8 -> assert False ] ]
-           else True
+          if String.length c = 1 then
+            match c.[0] with
+            [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' -> True
+            | x ->
+                if Char.code x < 128 then False
+                else
+                  match encoding.val with
+                  [ Ascii -> False
+                  | Iso_8859 -> Char.code x >= 160
+                  | Utf_8 -> assert False ] ]
+          else True
         ;
         value ctrl_val c =
           if String.length c = 1 then
@@ -326,7 +326,7 @@ value rec next_char s i =
           | 'f' -> ('\012', i + 2)
           | 'n' -> ('\n', i + 2)
           | 'r' -> ('\r', i + 2)
-          | 'i' -> ('\009', i + 2)
+          | 't' -> ('\009', i + 2)
           | 'v' -> ('\011', i + 2)
           | 'x' ->
               if i + 2 < String.length s then
