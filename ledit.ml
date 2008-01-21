@@ -389,8 +389,6 @@ value insert_command s comm kb =
   insert_in_tree 0 kb
 ;
 
-value set_command kb s comm = kb.val := insert_command s comm kb.val;
-
 value init_default_commands kb =
   List.fold_left (fun kb (key, bind) -> insert_command key bind kb) kb
     [("\\C-a", Beginning_of_line);
