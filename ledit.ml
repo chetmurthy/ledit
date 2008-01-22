@@ -565,17 +565,6 @@ value init_file_commands kb fname =
     | None -> do { close_in ic; kb } ]
 ;
 
-value init_commands () =
-  let kb = init_default_commands KB_none in
-  let fname =
-    try Sys.getenv "LEDITRC" with
-    [ Not_found ->
-        try Filename.concat (Sys.getenv "HOME") ".leditrc" with
-        [ Not_found -> ".leditrc" ] ]
-  in
-  if Sys.file_exists fname then init_file_commands kb fname else kb
-;
-
 type line =
   { buf : mutable A.String.t;
     cur : mutable int;
@@ -593,11 +582,14 @@ type state =
   { od : line;
     nd : line;
     line : line;
+    leditrc_name : string;
+    leditrc_mtime : mutable float;
     last_line : mutable A.String.t;
     istate : mutable istate;
     shift : mutable int;
     cut : mutable A.String.t;
-    key_bindings : mutable option kb_tree;
+    init_kb : mutable option kb_tree;
+    total_kb : mutable option kb_tree;
     last_comm : mutable command;
     histfile : mutable option out_channel;
     history : mutable Cursor.t A.String.t;
@@ -625,12 +617,35 @@ value eval_comm s st =
         else search_in_tree i n.son ]
   in
   let kb =
-    match st.key_bindings with
-    [ Some kb -> kb
-    | None -> do {
-        let kb = init_commands () in
-        st.key_bindings := Some kb;
-        kb
+    let leditrc_mtime =
+      if Sys.file_exists st.leditrc_name then
+        let stat = Unix.stat st.leditrc_name in
+        if stat.Unix.st_mtime > st.leditrc_mtime then Some stat.Unix.st_mtime
+        else None
+      else None
+    in
+    match (leditrc_mtime, st.total_kb) with
+    [ (None, Some kb) -> kb
+    | _ -> do {
+        let init_kb =
+          match st.init_kb with
+          [ Some kb -> kb
+          | None -> do {
+              let kb = init_default_commands KB_none in
+              st.init_kb := Some kb;
+              kb
+            } ]
+        in
+        let total_kb =
+          match leditrc_mtime with
+          [ Some mtime -> do {
+              st.leditrc_mtime := mtime;
+              init_file_commands init_kb st.leditrc_name
+            }
+          | None -> init_kb ]
+        in
+        st.total_kb := Some total_kb;
+        total_kb
       } ]
   in
   search_in_tree 0 kb
@@ -1346,9 +1361,17 @@ local st =
   {od = {buf = A.String.empty; cur = 0; len = 0};
    nd = {buf = A.String.empty; cur = 0; len = 0};
    line = {buf = A.String.empty; cur = 0; len = 0};
+   leditrc_name =
+     try Sys.getenv "LEDITRC" with
+     [ Not_found ->
+         try Filename.concat (Sys.getenv "HOME") ".leditrc" with
+         [ Not_found -> ".leditrc" ] ]
+   ;
+   leditrc_mtime = 0.0;
    last_line = A.String.empty; istate = Normal ""; shift = 0;
-   key_bindings = None; cut = A.String.empty; last_comm = Accept_line;
-   histfile = None; history = Cursor.create (); abbrev = None}
+   init_kb = None; total_kb = None; cut = A.String.empty;
+   last_comm = Accept_line; histfile = None; history = Cursor.create ();
+   abbrev = None}
 in
 value edit_line () = do {
   let rec edit_loop () = do {

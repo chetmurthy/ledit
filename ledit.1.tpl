@@ -155,7 +155,8 @@ Summary of reverse search commands:
 If the environment variable LEDITRC is set, it contains the name of the
 leditrc file. Otherwise it is the file named ".leditrc" in user's home
 directory. When starting, ledit reads this file, if it exists, to modify
-or complete the default bindings.
+or complete the default bindings. If this file is changed while reading
+lines, it is read again to take the new file into account.
 
 Bindings lines are the ones which start with a string defining the key
 sequence and follow with a colon and a binding. A binding is either a
