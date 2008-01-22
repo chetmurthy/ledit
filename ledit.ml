@@ -1277,8 +1277,13 @@ value rec update_line st comm c = do {
     }
   | Unix_line_discard ->
       if st.line.cur > 0 then do {
+        let len  = st.line.len - st.line.cur in
+        for i = 0 to len - 1 do {
+          A.String.set st.line.buf i
+            (A.String.get st.line.buf (st.line.cur + i));
+        };
         st.line.cur := 0;
-        st.line.len := 0;
+        st.line.len := len;
         update_output st
       }
       else ()

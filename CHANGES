@@ -1,6 +1,8 @@
 Ledit Version 2.00
 ------------------
 
+- [22 Jan 2008] Fixed bug "unix-line-discard": erased the entire line instead
+  of just from beginning to cursor.
 - [18 Jan 2008] Added ability to have a file ".leditrc" in one's home
   directory (or in envirionment variable LEDITRC) containing user's bindings.
   See man page.
