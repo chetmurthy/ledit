@@ -554,6 +554,12 @@ value init_file_commands kb fname =
         let kb =
           match parse_line (Fstream.of_string s) with
           [ Some ((key, B_string s), _) ->
+              let s =
+                loop [] 0 where rec loop rev_cl i =
+                  match next_char s i with
+                  [ Some (c, i) -> loop [c :: rev_cl] i
+                  | None -> rev_implode rev_cl ]
+              in
               insert_command key (Insert s) kb
           | Some ((key, B_comm comm_name), _) ->
               match command_of_name comm_name with
