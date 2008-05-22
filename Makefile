@@ -45,16 +45,16 @@ include .depend
 
 ext/%.cmo: ext/%.ml
 	camlp5r -I ext -loc loc $< -o ext/$*.ppo
-	$(OCAMLC) -I +camlp5 -c -impl ext/$*.ppo
+	$(OCAMLC) -I `camlp5 -where` -c -impl ext/$*.ppo
 	rm -f ext/$*.ppo
 
 %.cmo: %.ml
 	$(CAMLP5) $< -o $*.ppo
-	$(OCAMLC) -I +camlp5 -c -impl $*.ppo
+	$(OCAMLC) -I `camlp5 -where` -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmx: %.ml
 	$(CAMLP5) $< -o $*.ppo
-	$(OCAMLOPT) -I +camlp5 -c -impl $*.ppo
+	$(OCAMLOPT) -I `camlp5 -where` -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmi: %.mli
 	$(CAMLP5) $< -o $*.ppi
