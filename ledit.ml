@@ -536,6 +536,7 @@ value command_of_name = do {
   add "quoted-insert" Quoted_insert;
   add "redraw-current-line" Redraw_current_line;
   add "reverse-search-history" Reverse_search_history;
+  add "self-insert" Self_insert;
   add "suspend" Suspend;
   add "transpose-chars" Transpose_chars;
   add "unix-line-discard" Unix_line_discard;
@@ -1085,6 +1086,9 @@ value reverse_search_history st =
             bell ();
             initial_str
           }
+        | Self_insert ->
+            let str = A.String.concat str (A.String.of_char c) in
+            incr_search (find_line (cnt, fstr) str) str
         | _ -> fstr ]
     | Some None ->
         if s = "\027" then fstr
