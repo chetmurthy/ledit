@@ -4,7 +4,7 @@
 (*                                                                     *)
 (*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001-2008 Institut National de Recherche en Informatique *)
+(*  Copyright 2001-2010 Institut National de Recherche en Informatique *)
 (*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
@@ -238,6 +238,7 @@ type command =
   | End_of_history
   | End_of_line
   | Expand_abbrev
+  | Expand_to_file_name
   | Forward_char
   | Forward_word
   | Insert of string
@@ -392,27 +393,28 @@ value insert_command s comm kb =
 value init_default_commands kb =
   List.fold_left (fun kb (key, bind) -> insert_command key bind kb) kb
     [("\\C-a", Beginning_of_line);
+     ("\\C-b", Backward_char);
+     ("\\C-c", Interrupt);
+     ("\\C-d", Delete_char_or_end_of_file);
      ("\\C-e", End_of_line);
      ("\\C-f", Forward_char);
-     ("\\C-b", Backward_char);
-     ("\\C-p", Previous_history);
-     ("\\C-n", Next_history);
-     ("\\C-r", Reverse_search_history);
-     ("\\C-d", Delete_char_or_end_of_file);
-     ("\\C-h", Backward_delete_char);
-     ("\\177", Backward_delete_char);
-     ("\\C-t", Transpose_chars);
-     ("\\C-q", Quoted_insert);
-     ("\\C-k", Kill_line);
-     ("\\C-y", Yank);
-     ("\\C-u", Unix_line_discard);
-     ("\\C-l", Redraw_current_line);
      ("\\C-g", Abort);
-     ("\\C-c", Interrupt);
+     ("\\C-h", Backward_delete_char);
+     ("\\C-i", Expand_to_file_name);
+     ("\\C-k", Kill_line);
+     ("\\C-l", Redraw_current_line);
+     ("\\C-n", Next_history);
+     ("\\C-p", Previous_history);
+     ("\\C-q", Quoted_insert);
+     ("\\C-r", Reverse_search_history);
+     ("\\C-t", Transpose_chars);
+     ("\\C-u", Unix_line_discard);
+     ("\\C-x", Operate_and_get_next);
+     ("\\C-y", Yank);
      ("\\C-z", Suspend);
      ("\\C-\\", Quit);
+     ("\\177", Backward_delete_char);
      ("\\n", Accept_line);
-     ("\\C-x", Operate_and_get_next);
      ("\\ef", Forward_word);
      ("\\eb", Backward_word);
      ("\\ec", Capitalize_word);
@@ -524,6 +526,7 @@ value command_of_name = do {
   add "end-of-history" End_of_history;
   add "end-of-line" End_of_line;
   add "expand-abbrev" Expand_abbrev;
+  add "expand-to-file-name" Expand_to_file_name;
   add "forward-char" Forward_char;
   add "forward-word" Forward_word;
   add "interrupt" Interrupt;
@@ -1172,6 +1175,129 @@ value expand_abbrev st abbrev = do {
   update_output st
 };
 
+value start_with s s_ini =
+  let len = String.length s_ini in
+  String.length s >= len && String.sub s 0 len = s_ini
+;
+
+value insert_string st s = do {
+  String.iter
+     (fun c -> do {
+        insert_char st (A.Char.of_ascii c);
+        st.line.cur := st.line.cur + 1
+      }) s
+};
+
+value print_file_list st dirname files = do {
+  let max_flen =
+    List.fold_left (fun max_len fn -> max max_len (String.length fn)) 0 files
+  in
+  let n_by_line = max 1 ((max_len.val + 2) / (max_flen + 2)) in
+  loop 0 files where rec loop n =
+    fun
+    [ [file :: files] -> do {
+        if n = n_by_line then do {
+          prerr_endline "";
+          loop 0 [file :: files]
+        }
+        else do {
+          prerr_string file;
+          let fn = Filename.concat dirname file in
+          if Sys.is_directory fn then prerr_string Filename.dir_sep
+          else prerr_string " ";
+          if n < n_by_line - 1 then do {
+            prerr_string
+              (String.make (max_flen + 1 - String.length file) ' ');
+          }
+          else ();
+          loop (n + 1) files;
+        }
+      }
+    | [] -> () ];
+};
+
+value expand_to_file_name st = do {
+  let s =
+    loop "" (st.line.cur - 1) where rec loop s i =
+      if i < 0 then s
+      else
+        match A.Char.to_ascii (A.String.get st.line.buf i) with
+        [ Some c ->
+            match c with
+            [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '.' | '_' | '-' | '/' ->
+                loop (String.make 1 c ^ s) (i - 1)
+            | _ -> s ]
+        | None -> s ]
+  in
+  let dirname = Filename.dirname s in
+  let basename = Filename.basename s in
+  if Sys.is_directory dirname then do {
+    let files = Array.to_list (Sys.readdir dirname) in
+    let (files, basename) =
+      if s = "" then (files, "")
+      else if s = Filename.current_dir_name ^ Filename.dir_sep then
+        (files, "")
+      else if s = Filename.parent_dir_name ^ Filename.dir_sep then
+        (files, "")
+      else if
+        basename = Filename.current_dir_name &&
+        s <> Filename.concat dirname basename
+      then (files, "")
+      else
+        ([Filename.current_dir_name; Filename.parent_dir_name :: files],
+         basename)
+    in
+    let files = List.filter (fun fn -> start_with fn basename) files in
+    let files = List.sort compare files in
+    match files with
+    [ [] -> ()
+    | [fname] -> do {
+        let len = String.length basename in
+        let s = String.sub fname len (String.length fname - len) in
+        insert_string st s;
+        let fn = Filename.concat dirname fname in
+        if Sys.is_directory fn then insert_string st Filename.dir_sep
+        else insert_string st " ";
+        update_output st
+      }
+    | [file :: files] -> do {
+        let common =
+          loop file files where rec loop common =
+            fun
+            [ [file :: files] ->
+                if start_with file common then loop common files
+                else if common = "" then ""
+                else
+                  loop (String.sub common 0 (String.length common - 1))
+                    [file :: files]
+            | [] -> common ]
+        in
+        let len = String.length basename in
+        let s = String.sub common len (String.length common - len) in
+        insert_string st s;
+        update_output st;
+        put_newline st;
+        st.od.cur := 0;
+        st.od.len := 0;
+        print_file_list st dirname [file :: files];
+        put_newline ();
+        flush stderr;
+        update_output st;
+      } ]
+  }
+  else do {
+    insert_char st (A.Char.of_ascii '(');
+    st.line.cur := st.line.cur + 1;
+    for i = 0 to String.length s - 1 do {
+      insert_char st (A.Char.of_ascii s.[i]);
+      st.line.cur := st.line.cur + 1;
+    };
+    insert_char st (A.Char.of_ascii ')');
+    st.line.cur := st.line.cur + 1;
+    update_output st
+  }
+};
+
 value rec update_line st comm c = do {
   let abbrev = st.abbrev in
   st.abbrev := None;
@@ -1285,6 +1411,7 @@ value rec update_line st comm c = do {
       update_output st
     }
   | Expand_abbrev -> expand_abbrev st abbrev
+  | Expand_to_file_name -> expand_to_file_name st
   | Redraw_current_line -> do {
       put_newline st;
       st.od.cur := 0;

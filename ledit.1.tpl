@@ -80,6 +80,7 @@ The editing commands are:
       ^b   : backward char
       M-f  : forward word
       M-b  : backard word
+      TAB  : expand to file name
       ^p   : previous line in history
       ^n   : next line in history
       M-<  : first line in history
@@ -205,6 +206,7 @@ The commands are:
   end-of-history: display the last line of the history
   end-of-line: move the cursor to the end of the line
   expand-abbrev: try to complete the word by looking at the history
+  expand-to-file-name: try to complete the word from a file name
   forward-char: move the cursor after the next word
   forward-word: move the cursor to the next character
   interrupt: interrupt command (send control-C)

@@ -1,6 +1,7 @@
 Ledit Version 2.02
 ------------------
 
+- [16 Nov 2010] Added expand-to-file-name (linked to TAB).
 - [17 Apr 2009] Fixed bug: "self-insert" did not work as command in .leditrc
   nor in reverse search.
 
