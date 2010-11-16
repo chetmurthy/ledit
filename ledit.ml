@@ -1224,7 +1224,8 @@ value expand_to_file_name st = do {
         match A.Char.to_ascii (A.String.get st.line.buf i) with
         [ Some c ->
             match c with
-            [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '.' | '_' | '-' | '/' ->
+            [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '.' | '_' | '-' | '/' | '#' |
+              '~' ->
                 loop (String.make 1 c ^ s) (i - 1)
             | _ -> s ]
         | None -> s ]
