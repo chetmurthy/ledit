@@ -603,7 +603,8 @@ type state =
     last_comm : mutable command;
     histfile : mutable option out_channel;
     history : mutable Cursor.t A.String.t;
-    abbrev : mutable option abbrev_data }
+    abbrev : mutable option abbrev_data;
+    extofn : mutable int }
 ;
 
 value eval_comm s st =
@@ -1188,10 +1189,11 @@ value insert_string st s = do {
       }) s
 };
 
-value print_file_list st dirname files = do {
-  let max_flen =
-    List.fold_left (fun max_len fn -> max max_len (String.length fn)) 0 files
-  in
+value is_directory fn =
+  try Sys.is_directory fn with [ Sys_error _ -> False ]
+;
+
+value print_file_list st max_flen dirname files = do {
   let n_by_line = max 1 ((max_len.val + 2) / (max_flen + 2)) in
   loop 0 files where rec loop n =
     fun
@@ -1203,7 +1205,7 @@ value print_file_list st dirname files = do {
         else do {
           prerr_string file;
           let fn = Filename.concat dirname file in
-          if Sys.is_directory fn then prerr_string Filename.dir_sep
+          if is_directory fn then prerr_string Filename.dir_sep
           else prerr_string " ";
           if n < n_by_line - 1 then do {
             prerr_string
@@ -1216,92 +1218,126 @@ value print_file_list st dirname files = do {
     | [] -> () ];
 };
 
+value max_displayed_files = 50;
+
 value expand_to_file_name st = do {
-  let s =
-    loop "" (st.line.cur - 1) where rec loop s i =
-      if i < 0 then s
-      else
-        match A.Char.to_ascii (A.String.get st.line.buf i) with
-        [ Some c ->
-            match c with
-            [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '.' | '_' | '-' | '/' | '#' |
-              '~' ->
-                loop (String.make 1 c ^ s) (i - 1)
-            | _ -> s ]
-        | None -> s ]
-  in
-  let dirname = Filename.dirname s in
-  let basename = Filename.basename s in
-  if Sys.is_directory dirname then do {
-    let files = Array.to_list (Sys.readdir dirname) in
-    let (files, basename) =
-      if s = "" then (files, "")
-      else if s = Filename.current_dir_name ^ Filename.dir_sep then
-        (files, "")
-      else if s = Filename.parent_dir_name ^ Filename.dir_sep then
-        (files, "")
-      else if
-        basename = Filename.current_dir_name &&
-        s <> Filename.concat dirname basename
-      then (files, "")
-      else
-        ([Filename.current_dir_name; Filename.parent_dir_name :: files],
-         basename)
-    in
-    let files = List.filter (fun fn -> start_with fn basename) files in
-    let files = List.sort compare files in
-    match files with
-    [ [] -> ()
-    | [fname] -> do {
-        let len = String.length basename in
-        let s = String.sub fname len (String.length fname - len) in
-        insert_string st s;
-        let fn = Filename.concat dirname fname in
-        if Sys.is_directory fn then insert_string st Filename.dir_sep
-        else insert_string st " ";
-        update_output st
-      }
-    | [file :: files] -> do {
-        let common =
-          loop file files where rec loop common =
-            fun
-            [ [file :: files] ->
-                if start_with file common then loop common files
-                else if common = "" then ""
-                else
-                  loop (String.sub common 0 (String.length common - 1))
-                    [file :: files]
-            | [] -> common ]
-        in
-        let len = String.length basename in
-        let s = String.sub common len (String.length common - len) in
-        insert_string st s;
-        update_output st;
-        put_newline st;
-        st.od.cur := 0;
-        st.od.len := 0;
-        print_file_list st dirname [file :: files];
-        put_newline ();
-        flush stderr;
-        update_output st;
-      } ]
-  }
+  if st.extofn = 1 then ()
   else do {
-    insert_char st (A.Char.of_ascii '(');
-    st.line.cur := st.line.cur + 1;
-    for i = 0 to String.length s - 1 do {
-      insert_char st (A.Char.of_ascii s.[i]);
+    let s =
+      loop "" (st.line.cur - 1) where rec loop s i =
+        if i < 0 then s
+        else
+          match A.Char.to_ascii (A.String.get st.line.buf i) with
+          [ Some c ->
+              match c with
+              [ 'a'..'z' | 'A'..'Z' | '0'..'9' | '.' | '_' | '-' | '/' | '#' |
+                '~' ->
+                  loop (String.make 1 c ^ s) (i - 1)
+              | _ -> s ]
+          | None -> s ]
+    in
+    let dirname = Filename.dirname s in
+    let basename = Filename.basename s in
+    if is_directory dirname then do {
+      let files = Array.to_list (Sys.readdir dirname) in
+      let (files, basename) =
+        if s = "" then (files, "")
+        else if s = Filename.current_dir_name ^ Filename.dir_sep then
+          (files, "")
+        else if s = Filename.parent_dir_name ^ Filename.dir_sep then
+          (files, "")
+        else if
+          basename = Filename.current_dir_name &&
+          s <> Filename.concat dirname basename
+        then (files, "")
+        else
+          ([Filename.current_dir_name; Filename.parent_dir_name :: files],
+           basename)
+      in
+      let files = List.filter (fun fn -> start_with fn basename) files in
+      let files = List.sort compare files in
+      let max_flen =
+        List.fold_left (fun max_len fn -> max max_len (String.length fn)) 0
+          files
+      in
+      let nfiles = List.length files in
+      let files =
+        if nfiles < max_displayed_files then files
+        else do {
+          let rev_files =
+            let ini_shift = (st.extofn - 2) mod nfiles in
+            loop ini_shift [] max_displayed_files files
+            where rec loop shift rev_files n =
+              fun
+              [ [file :: files] ->
+                  if shift > 0 then loop (shift - 1) [] n files
+                  else if n = 0 then rev_files
+                  else loop 0 [file :: rev_files] (n - 1) files
+              | [] ->
+                  if n = 0 then rev_files else loop 0 rev_files n files ]
+          in
+          List.rev
+            (if List.length rev_files < nfiles then ["..." :: rev_files]
+             else rev_files)
+        }
+      in
+      match files with
+      [ [] -> ()
+      | [fname] -> do {
+          let len = String.length basename in
+          let s = String.sub fname len (String.length fname - len) in
+          insert_string st s;
+          let fn = Filename.concat dirname fname in
+          if is_directory fn then insert_string st Filename.dir_sep
+          else insert_string st " ";
+          update_output st
+        }
+      | [file :: files] -> do {
+          let common =
+            loop file files where rec loop common =
+              fun
+              [ [file :: files] ->
+                  if start_with file common then loop common files
+                  else if common = "" then ""
+                  else
+                    loop (String.sub common 0 (String.length common - 1))
+                      [file :: files]
+              | [] -> common ]
+          in
+          let len = String.length basename in
+          if String.length common > len then do {          
+            let s = String.sub common len (String.length common - len) in
+            insert_string st s;
+            update_output st;
+          }
+          else ();
+          put_newline st;
+          st.od.cur := 0;
+          st.od.len := 0;
+          print_file_list st max_flen dirname [file :: files];
+          put_newline ();
+          flush stderr;
+          update_output st;
+        } ]
+    }
+    else do {
+      insert_char st (A.Char.of_ascii '(');
       st.line.cur := st.line.cur + 1;
-    };
-    insert_char st (A.Char.of_ascii ')');
-    st.line.cur := st.line.cur + 1;
-    update_output st
+      for i = 0 to String.length s - 1 do {
+        insert_char st (A.Char.of_ascii s.[i]);
+        st.line.cur := st.line.cur + 1;
+      };
+      insert_char st (A.Char.of_ascii ')');
+      st.line.cur := st.line.cur + 1;
+      update_output st
+    }
   }
 };
 
 value rec update_line st comm c = do {
   let abbrev = st.abbrev in
   st.abbrev := None;
+  st.extofn := if comm = Expand_to_file_name then st.extofn + 1 else 0;
   match comm with
   [ Beginning_of_line ->
       if st.line.cur > 0 then do {st.line.cur := 0; update_output st} else ()
@@ -1509,7 +1545,7 @@ local st =
    last_line = A.String.empty; istate = Normal ""; shift = 0;
    init_kb = None; total_kb = None; cut = A.String.empty;
    last_comm = Accept_line; histfile = None; history = Cursor.create ();
-   abbrev = None}
+   abbrev = None; extofn = 0}
 in
 value edit_line () = do {
   let rec edit_loop () = do {
