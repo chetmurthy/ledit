@@ -8,6 +8,7 @@
 "\C-d": delete-char-or-end-of-file
 "\C-h": backward-delete-char
 "\177": backward-delete-char
+"\C-i": expand-to-file-name
 "\C-t": transpose-chars
 "\C-q": quoted-insert
 "\C-k": kill-line
