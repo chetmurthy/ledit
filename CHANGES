@@ -1,3 +1,9 @@
+Ledit Version 2.02.0
+--------------------
+
+- [17 Nov 2010] Fixed bug: failed if history file contained characters
+  whose code >= 128.
+
 Ledit Version 2.02
 ------------------
 

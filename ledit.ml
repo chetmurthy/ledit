@@ -197,7 +197,8 @@ module A :
         value input_line ic =
           let s = input_line ic in
           match encoding.val with
-          [ Ascii | Iso_8859 -> of_ascii s
+          [ Ascii | Iso_8859 ->
+              Array.init (String.length s) (fun i -> String.make 1 s.[i])
           | Utf_8 ->
               loop [] 0 where rec loop list i =
                 if i >= String.length s then Array.of_list (List.rev list)
