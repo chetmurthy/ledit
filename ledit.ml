@@ -232,13 +232,13 @@ type command =
   | Beginning_of_history
   | Beginning_of_line
   | Capitalize_word
+  | Complete_file_name
   | Delete_char
   | Delete_char_or_end_of_file
   | Downcase_word
   | End_of_history
   | End_of_line
   | Expand_abbrev
-  | Expand_to_file_name
   | Forward_char
   | Forward_word
   | Insert of string
@@ -400,7 +400,7 @@ value init_default_commands kb =
      ("\\C-f", Forward_char);
      ("\\C-g", Abort);
      ("\\C-h", Backward_delete_char);
-     ("\\C-i", Expand_to_file_name);
+     ("\\C-i", Complete_file_name);
      ("\\C-k", Kill_line);
      ("\\C-l", Redraw_current_line);
      ("\\C-n", Next_history);
@@ -526,7 +526,7 @@ value command_of_name = do {
   add "end-of-history" End_of_history;
   add "end-of-line" End_of_line;
   add "expand-abbrev" Expand_abbrev;
-  add "expand-to-file-name" Expand_to_file_name;
+  add "complete-file-name" Complete_file_name;
   add "forward-char" Forward_char;
   add "forward-word" Forward_word;
   add "interrupt" Interrupt;
@@ -1220,7 +1220,7 @@ value print_file_list st max_flen dirname files = do {
 
 value max_displayed_files = 50;
 
-value expand_to_file_name st = do {
+value complete_file_name st = do {
   if st.extofn = 1 then ()
   else do {
     let s =
@@ -1337,7 +1337,7 @@ value expand_to_file_name st = do {
 value rec update_line st comm c = do {
   let abbrev = st.abbrev in
   st.abbrev := None;
-  st.extofn := if comm = Expand_to_file_name then st.extofn + 1 else 0;
+  st.extofn := if comm = Complete_file_name then st.extofn + 1 else 0;
   match comm with
   [ Beginning_of_line ->
       if st.line.cur > 0 then do {st.line.cur := 0; update_output st} else ()
@@ -1448,7 +1448,7 @@ value rec update_line st comm c = do {
       update_output st
     }
   | Expand_abbrev -> expand_abbrev st abbrev
-  | Expand_to_file_name -> expand_to_file_name st
+  | Complete_file_name -> complete_file_name st
   | Redraw_current_line -> do {
       put_newline st;
       st.od.cur := 0;
