@@ -1325,7 +1325,7 @@ value complete_file_name st = do {
         put_newline st;
         st.od.cur := 0;
         st.od.len := 0;
-        prerr_string "*** directory contents";
+        prerr_string "*** files";
         if nb_screens > 1 then eprintf " (%d/%d)" (screen_nb + 1) nb_screens
         else ();
         prerr_endline " ***";

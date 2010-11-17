@@ -4,7 +4,7 @@
 (*                                                                     *)
 (*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001-2008 Institut National de Recherche en Informatique *)
+(*  Copyright 2001-2010 Institut National de Recherche en Informatique *)
 (*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
@@ -14,7 +14,7 @@
 open Ledit;
 open Sys;
 
-value version = "2.02-exp";
+value version = "2.02";
 
 value usage () = do {
   prerr_string "Usage: ";
