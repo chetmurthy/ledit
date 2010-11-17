@@ -395,28 +395,28 @@ value insert_command s comm kb =
 value init_default_commands kb =
   List.fold_left (fun kb (key, bind) -> insert_command key bind kb) kb
     [("\\C-a", Beginning_of_line);
-     ("\\C-b", Backward_char);
-     ("\\C-c", Interrupt);
-     ("\\C-d", Delete_char_or_end_of_file);
      ("\\C-e", End_of_line);
      ("\\C-f", Forward_char);
-     ("\\C-g", Abort);
-     ("\\C-h", Backward_delete_char);
-     ("\\C-i", Complete_file_name);
-     ("\\C-k", Kill_line);
-     ("\\C-l", Redraw_current_line);
-     ("\\C-n", Next_history);
+     ("\\C-b", Backward_char);
      ("\\C-p", Previous_history);
-     ("\\C-q", Quoted_insert);
+     ("\\C-n", Next_history);
      ("\\C-r", Reverse_search_history);
+     ("\\C-d", Delete_char_or_end_of_file);
+     ("\\C-h", Backward_delete_char);
+     ("\\177", Backward_delete_char);
+     ("\\C-i", Complete_file_name);
      ("\\C-t", Transpose_chars);
-     ("\\C-u", Unix_line_discard);
-     ("\\C-x", Operate_and_get_next);
+     ("\\C-q", Quoted_insert);
+     ("\\C-k", Kill_line);
      ("\\C-y", Yank);
+     ("\\C-u", Unix_line_discard);
+     ("\\C-l", Redraw_current_line);
+     ("\\C-g", Abort);
+     ("\\C-c", Interrupt);
      ("\\C-z", Suspend);
      ("\\C-\\", Quit);
-     ("\\177", Backward_delete_char);
      ("\\n", Accept_line);
+     ("\\C-x", Operate_and_get_next);
      ("\\ef", Forward_word);
      ("\\eb", Backward_word);
      ("\\ec", Capitalize_word);
@@ -436,7 +436,7 @@ value init_default_commands kb =
      ("\\e[H", Beginning_of_line);	(* Home *)
      ("\\e[F", End_of_line);		(* End *)
      ("\\e[5~", Previous_history);	(* Page Up *)
-     ("\\e[6~", Next_history);		(* Page Down *)
+     ("\\e[6~", Next_history);          (* Page Down *)
      ("\\e[2H", Beginning_of_history);	(* Shift Home *)
      ("\\e[2F", End_of_history);	(* Shift End *)
      ("\\e[OA", Previous_history);
@@ -444,17 +444,17 @@ value init_default_commands kb =
      ("\\e[OD", Backward_char);
      ("\\e[OH", Beginning_of_line) ::
      if meta_as_escape.val then
-       [("\\M-f", Forward_word);
-        ("\\M-b", Backward_word);
+       [("\\M-b", Backward_word);
+        ("\\M-c", Capitalize_word);
+        ("\\M-d", Kill_word);
+        ("\\M-f", Forward_word);
+        ("\\M-l", Downcase_word);
+        ("\\M-u", Upcase_word);
         ("\\M-<", Beginning_of_history);
         ("\\M->", End_of_history);
-        ("\\M-c", Capitalize_word);
-        ("\\M-u", Upcase_word);
-        ("\\M-l", Downcase_word);
-        ("\\M-d", Kill_word);
+        ("\\M-/", Expand_abbrev);
         ("\\M-\\C-h", Backward_kill_word);
-        ("\\M-\\127", Backward_kill_word);
-        ("\\M-/", Expand_abbrev)]
+        ("\\M-\\127", Backward_kill_word)]
      else []]
 ;
 

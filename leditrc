@@ -14,7 +14,7 @@
 "\C-k": kill-line
 "\C-y": yank
 "\C-u": unix-line-discard
-"\C-l": refresh-line
+"\C-l": redraw-current-line
 "\C-g": abort
 "\C-c": interrupt
 "\C-z": suspend

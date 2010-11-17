@@ -71,7 +71,7 @@ press the "meta" key, then press "a", then release "a", then release
 this case, use the manipulation with "escape").
 .PP
 
-The editing commands are:
+The default editing commands are:
 
 .nf
       ^a   : beginning of line
@@ -80,7 +80,7 @@ The editing commands are:
       ^b   : backward char
       M-f  : forward word
       M-b  : backard word
-      TAB  : expand to file name
+      TAB  : complete file name
       ^p   : previous line in history
       ^n   : next line in history
       M-<  : first line in history
