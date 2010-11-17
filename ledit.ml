@@ -1320,17 +1320,7 @@ value complete_file_name st = do {
           update_output st;
         } ]
     }
-    else do {
-      insert_char st (A.Char.of_ascii '(');
-      st.line.cur := st.line.cur + 1;
-      for i = 0 to String.length s - 1 do {
-        insert_char st (A.Char.of_ascii s.[i]);
-        st.line.cur := st.line.cur + 1;
-      };
-      insert_char st (A.Char.of_ascii ')');
-      st.line.cur := st.line.cur + 1;
-      update_output st
-    }
+    else ()
   }
 };
 
