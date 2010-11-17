@@ -14,7 +14,7 @@
 open Ledit;
 open Sys;
 
-value version = "2.02";
+value version = "2.03-exp";
 
 value usage () = do {
   prerr_string "Usage: ";
