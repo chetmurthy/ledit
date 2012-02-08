@@ -673,32 +673,35 @@ value flush_out st = flush stderr;
 value bell () = do { prerr_string "\007"; flush stderr };
 
 value saved_tcio =
-  try Unix.tcgetattr Unix.stdin with
-  [ Unix.Unix_error _ _ _ -> do {
-      eprintf "Error: standard input is not a terminal\n";
-      flush stderr;
-      exit 1
-    } ]
+  try Some (Unix.tcgetattr Unix.stdin) with
+  [ Unix.Unix_error _ _ _ -> None ]
 ;
 value edit_tcio = ref None;
 
 value set_edit () =
-  let tcio =
-    match edit_tcio.val with
-    [ Some e -> e
-    | None -> do {
-        let tcio = Unix.tcgetattr Unix.stdin in
-        tcio.Unix.c_echo := False;
-        tcio.Unix.c_icanon := False;
-        tcio.Unix.c_vmin := 1;
-        tcio.Unix.c_isig := False;
-        tcio.Unix.c_ixon := False;
-        edit_tcio.val := Some tcio;
-        tcio
-      } ]
-  in
-  Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio
-and unset_edit () = Unix.tcsetattr Unix.stdin Unix.TCSADRAIN saved_tcio;
+  match saved_tcio with
+  [ Some _ ->
+      let tcio =
+        match edit_tcio.val with
+        [ Some e -> e
+        | None -> do {
+            let tcio = Unix.tcgetattr Unix.stdin in
+            tcio.Unix.c_echo := False;
+            tcio.Unix.c_icanon := False;
+            tcio.Unix.c_vmin := 1;
+            tcio.Unix.c_isig := False;
+            tcio.Unix.c_ixon := False;
+            edit_tcio.val := Some tcio;
+            tcio
+          } ]
+      in
+      Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio
+  | None -> () ]
+and unset_edit () =
+  match saved_tcio with
+  [ Some tcio -> Unix.tcsetattr Unix.stdin Unix.TCSADRAIN tcio
+  | None -> () ]
+;
 
 value line_set_nth_char line i c =
   if i == A.String.length line.buf then

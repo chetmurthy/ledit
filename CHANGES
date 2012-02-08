@@ -1,5 +1,8 @@
-Ledit Version 2.02.2
---------------------
+Ledit Version 2.03
+------------------
+
+- [08 Feb 2012] Changed to accept Ledit.input_line even if stdin is not
+  a terminal.
 
 Ledit Version 2.02.1
 --------------------
