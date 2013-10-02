@@ -4,7 +4,7 @@
 (*                                                                     *)
 (*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001-2010 Institut National de Recherche en Informatique *)
+(*  Copyright 2001-2013 Institut National de Recherche en Informatique *)
 (*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
@@ -443,7 +443,14 @@ value init_default_commands kb =
      ("\\e[OA", Previous_history);
      ("\\e[OC", Forward_char);
      ("\\e[OD", Backward_char);
-     ("\\e[OH", Beginning_of_line) ::
+     ("\\e[OH", Beginning_of_line);
+     (* gnome-terminal *)
+     ("\\eOH", Beginning_of_line); (* Home *)
+     ("\\eOF", End_of_line); (* End *)
+     (* rxvt *)
+     ("\\e[7~", Beginning_of_line); (* Home *)
+     ("\\e[8~", End_of_line) (* End *)
+     ::
      if meta_as_escape.val then
        [("\\M-b", Backward_word);
         ("\\M-c", Capitalize_word);
