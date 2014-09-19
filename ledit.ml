@@ -1644,7 +1644,7 @@ and open_histfile trunc file = do {
     Unix.openfile file
       ([Unix.O_WRONLY; Unix.O_CREAT] @
        (if trunc then [Unix.O_TRUNC] else []))
-      0o666
+      0o600
   in
   let fdo = Unix.out_channel_of_descr fd in
   if not trunc then seek_out fdo (out_channel_length fdo) else ();
