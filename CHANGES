@@ -1,6 +1,7 @@
 Ledit Version 2.04
 ------------------
 
+- [21 Sep 2014] Added wrappers for String functions for OCaml 4.02.0
 - [02 Oct 2013] Added '\eOH' and '\e[7~' (Home) for Beginning_of_line and
   '\eOF' and '\e[8~' (End) for End_of_line (credits Martin DeMello)
 

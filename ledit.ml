@@ -4,16 +4,16 @@
 (*                                                                     *)
 (*                Daniel de Rauglaudre, INRIA Rocquencourt             *)
 (*                                                                     *)
-(*  Copyright 2001-2013 Institut National de Recherche en Informatique *)
+(*  Copyright 2001-2014 Institut National de Recherche en Informatique *)
 (*  et Automatique.  Distributed only by permission.                   *)
 (*                                                                     *)
 (***********************************************************************)
 
 (* $Id$ *)
 
-#load "pa_local.cmo";
-#load "pa_def.cmo";
+#load "pa_macro.cmo";
 #load "pa_fstream.cmo";
+#load "pa_local.cmo";
 
 open Printf;
 
@@ -468,11 +468,21 @@ value init_default_commands kb =
 
 (* Reading the leditrc file *)
 
+value string_create =
+  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.create
+  ELSE Bytes.create END
+;
+
+value string_unsafe_set =
+  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.unsafe_set
+  ELSE Bytes.unsafe_set END
+;
+
 value rev_implode l =
-  let s = String.create (List.length l) in
+  let s = string_create (List.length l) in
   loop (String.length s - 1) l where rec loop i =
     fun
-    [ [c :: l] -> do { String.unsafe_set s i c; loop (i - 1) l }
+    [ [c :: l] -> do { string_unsafe_set s i c; loop (i - 1) l }
     | [] -> s ]
 ;
 
