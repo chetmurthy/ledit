@@ -19,6 +19,26 @@ open Printf;
 
 type encoding = [ Ascii | Iso_8859 | Utf_8 ];
 
+value string_make =
+  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.make
+  ELSE Bytes.make END
+;
+
+value string_create =
+  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.create
+  ELSE Bytes.create END
+;
+
+value string_length =
+  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.length
+  ELSE Bytes.length END
+;
+
+value string_unsafe_set =
+  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.unsafe_set
+  ELSE Bytes.unsafe_set END
+;
+
 module A :
   sig
     value encoding : ref encoding;
@@ -119,18 +139,18 @@ module A :
         ;
         value uppercase c =
           match encoding.val with
-          [ Ascii | Iso_8859 -> String.uppercase c
+          [ Ascii | Iso_8859 -> String.uppercase_ascii c
           | Utf_8 ->
               if String.length c = 1 then
-                if Char.code c.[0] < 128 then String.uppercase c else c
+                if Char.code c.[0] < 128 then String.uppercase_ascii c else c
               else c ]
         ;
         value lowercase c =
           match encoding.val with
-          [ Ascii | Iso_8859 -> String.lowercase c
+          [ Ascii | Iso_8859 -> String.lowercase_ascii c
           | Utf_8 ->
               if String.length c = 1 then
-                if Char.code c.[0] < 128 then String.lowercase c else c
+                if Char.code c.[0] < 128 then String.lowercase_ascii c else c
               else c ]
         ;
         value to_string s = s;
@@ -153,12 +173,12 @@ module A :
         ;
         value input ic = get_char (fun () -> input_char ic);
         value read =
-          let buff = " " in
+          let buff = string_make 2 ' ' in
           fun () ->
             get_char
               (fun () ->
                  let len = Unix.read Unix.stdin buff 0 1 in
-                 if len == 0 then raise End_of_file else buff.[0])
+                 if len == 0 then raise End_of_file else Bytes.get buff 0)
         ;
         value parse s = get_char (fun () -> Stream.next s);
         value print c =
@@ -468,22 +488,12 @@ value init_default_commands kb =
 
 (* Reading the leditrc file *)
 
-value string_create =
-  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.create
-  ELSE Bytes.create END
-;
-
-value string_unsafe_set =
-  IFDEF OCAML_VERSION < OCAML_4_02_0 THEN String.unsafe_set
-  ELSE Bytes.unsafe_set END
-;
-
 value rev_implode l =
   let s = string_create (List.length l) in
-  loop (String.length s - 1) l where rec loop i =
+  loop (string_length s - 1) l where rec loop i =
     fun
     [ [c :: l] -> do { string_unsafe_set s i c; loop (i - 1) l }
-    | [] -> s ]
+    | [] -> Bytes.to_string s ]
 ;
 
 value rec parse_string rev_cl =
