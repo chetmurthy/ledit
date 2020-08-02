@@ -2,6 +2,8 @@ opam-version: "2.0"
 authors: "Daniel de Rauglaudre"
 homepage:"http://pauillac.inria.fr/~ddr/ledit/"
 maintainer: "Pierre Boutillier <pierre.boutillier@laposte.net>"
+bug-reports: "https://github.com/chetmurthy/ledit/issues"
+dev-repo: "git+https://github.com/chetmurthy/ledit.git"
 
 build: [ make "all" ]
 depends: [
