@@ -10,6 +10,7 @@ depends: [
   "ocaml" {>= "4.03.0"}
   "camlp5" {> "7.99"}
   "camlp-streams"
+  "ocamlfind"
 ]
 synopsis: "Line editor, a la rlwrap"
 description: """

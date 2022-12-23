@@ -5,7 +5,7 @@ LIBDIR=/usr/local/lib
 MANDIR=/usr/local/man/man1
 OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
-CAMLP5=camlp5r -I ext
+CAMLP5=camlp5r -I ext -I +../camlp-streams `ocamlfind query camlp-streams`/camlp_streams.cma
 OBJS=cursor.cmo ledit.cmo go.cmo
 INCLUDES= -I `camlp5 -where` -I +unix -I +../camlp-streams
 OTHER_OBJS=unix.cma gramlib.cma camlp_streams.cma
@@ -66,7 +66,7 @@ depend:
 include .depend
 
 ext/%.cmo: ext/%.ml
-	camlp5r -I ext -loc loc $< -o ext/$*.ppo
+	$(CAMLP5) -loc loc $< -o ext/$*.ppo
 	$(OCAMLC) $(INCLUDES) -c -impl ext/$*.ppo
 	rm -f ext/$*.ppo
 
