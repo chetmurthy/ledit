@@ -1,3 +1,11 @@
+Ledit Version 2.06
+------------------
+
+- [23 Dec 2022] Updated build for Ocaml 5.0.0; there's a warning left,
+  but I can't remove that without breaking backward-compat, so I'll
+  wait until 5.0.0 stabilizes and then put out a breaking-change
+  release
+
 Ledit Version 2.05
 ------------------
 

@@ -7,8 +7,9 @@ OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
 CAMLP5=camlp5r -I ext
 OBJS=cursor.cmo ledit.cmo go.cmo
-OTHER_OBJS=unix.cma -I `camlp5 -where` gramlib.cma
-OTHER_XOBJS=unix.cmxa -I `camlp5 -where` gramlib.cmxa
+INCLUDES= -I `camlp5 -where` -I +unix -I +../camlp-streams
+OTHER_OBJS=unix.cma gramlib.cma camlp_streams.cma
+OTHER_XOBJS=unix.cmxa gramlib.cmxa camlp_streams.cmxa
 TARGET=ledit.out
 MKDIR=mkdir -p
 EXT=ext/pa_def.cmo ext/pa_local.cmo
@@ -20,10 +21,10 @@ all: ledit.cma
 opt: ledit.cmxa
 
 $(TARGET): $(OBJS)
-	$(OCAMLC) $(CUSTOM) $(OTHER_OBJS) $(OBJS) -o $(TARGET)
+	$(OCAMLC) $(CUSTOM) $(INCLUDES) $(OTHER_OBJS) $(OBJS) -o $(TARGET)
 
 $(TARGET:.out=.opt): $(OBJS:.cmo=.cmx)
-	$(OCAMLOPT) $(OTHER_XOBJS) $(OBJS:.cmo=.cmx) -o $(TARGET:.out=.opt)
+	$(OCAMLOPT) $(INCLUDES) $(OTHER_XOBJS) $(OBJS:.cmo=.cmx) -o $(TARGET:.out=.opt)
 
 ledit.1: ledit.1.tpl go.ml
 	VERSION=`sed -n -e 's/^.* version = "\(.*\)".*$$/\1/p' go.ml`; \
@@ -66,18 +67,18 @@ include .depend
 
 ext/%.cmo: ext/%.ml
 	camlp5r -I ext -loc loc $< -o ext/$*.ppo
-	$(OCAMLC) -I `camlp5 -where` -c -impl ext/$*.ppo
+	$(OCAMLC) $(INCLUDES) -c -impl ext/$*.ppo
 	rm -f ext/$*.ppo
 
 %.cmo: %.ml
 	$(CAMLP5) $< -o $*.ppo
-	$(OCAMLC) -I `camlp5 -where` -c -impl $*.ppo
+	$(OCAMLC) $(INCLUDES) -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmx: %.ml
 	$(CAMLP5) $< -o $*.ppo
-	$(OCAMLOPT) -I `camlp5 -where` -c -impl $*.ppo
+	$(OCAMLOPT) $(INCLUDES) -c -impl $*.ppo
 	/bin/rm -f $*.ppo
 %.cmi: %.mli
 	$(CAMLP5) $< -o $*.ppi
-	$(OCAMLC) -c -intf $*.ppi
+	$(OCAMLC) $(INCLUDES) -c -intf $*.ppi
 	/bin/rm -f $*.ppi
