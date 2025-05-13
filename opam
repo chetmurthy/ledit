@@ -1,3 +1,4 @@
+version: "2.07"
 opam-version: "2.0"
 authors: "Daniel de Rauglaudre"
 homepage:"http://pauillac.inria.fr/~ddr/ledit/"
