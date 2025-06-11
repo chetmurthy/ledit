@@ -16,11 +16,9 @@ depends: [
 ]
 install: [
   ["cp" "ledit.out" "%{bin}%/ledit"]
-  ["cp" "ledit.1" "%{bin}%/ledit.1"]
 ]
 remove: [
   ["rm" "%{bin}%/ledit"]
-  ["rm" "%{bin}%/ledit.1"]
 ]
 synopsis: "Line editor, a la rlwrap"
 description: """
