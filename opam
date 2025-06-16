@@ -14,6 +14,12 @@ depends: [
   "camlp-streams"
   "ocamlfind"
 ]
+install: [
+  ["cp" "ledit.out" "%{bin}%/ledit"]
+]
+remove: [
+  ["rm" "%{bin}%/ledit"]
+]
 synopsis: "Line editor, a la rlwrap"
 description: """
 One-line editor written in OCaml. It provides line editing for the
